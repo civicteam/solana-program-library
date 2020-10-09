@@ -229,6 +229,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "cbindgen"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1df6a11bba1d7cab86c166cecf4cf8acd7d02b7b65924d81b33d27197f22ee35"
+dependencies = [
+ "clap",
+ "heck",
+ "indexmap",
+ "log",
+ "proc-macro2 1.0.19",
+ "quote 1.0.7",
+ "serde",
+ "serde_json",
+ "syn 1.0.31",
+ "tempfile",
+ "toml",
+]
+
+[[package]]
 name = "cc"
 version = "1.0.49"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2190,7 +2209,7 @@ version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07c8482ae4aac6bb7d73aef79df5fb403a16a0cfbe200442532cff6b98613383"
 dependencies = [
- "cbindgen",
+ "cbindgen 0.14.2",
  "num-derive 0.2.5",
  "num-traits",
  "remove_dir_all",
@@ -2202,7 +2221,7 @@ dependencies = [
 name = "spl-token"
 version = "1.0.8"
 dependencies = [
- "cbindgen",
+ "cbindgen 0.15.0",
  "num-derive 0.3.1",
  "num-traits",
  "rand",
@@ -2230,7 +2249,7 @@ dependencies = [
 name = "spl-token-swap"
 version = "0.1.0"
 dependencies = [
- "cbindgen",
+ "cbindgen 0.15.0",
  "num-derive 0.3.1",
  "num-traits",
  "rand",
@@ -2244,7 +2263,7 @@ dependencies = [
 name = "spl-token2"
 version = "1.0.0"
 dependencies = [
- "cbindgen",
+ "cbindgen 0.15.0",
  "num-derive 0.3.1",
  "num-traits",
  "rand",
