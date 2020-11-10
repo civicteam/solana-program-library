@@ -1,23 +1,20 @@
 //! Program entrypoint definitions
 
-#![cfg(feature = "program")]
-#![cfg(not(feature = "no-entrypoint"))]
-
-use crate::{error::Error, state::State};
-use solana_sdk::{
+use crate::{error::SwapError, processor::Processor};
+use solana_program::{
     account_info::AccountInfo, entrypoint, entrypoint::ProgramResult,
     program_error::PrintProgramError, pubkey::Pubkey,
 };
 
 entrypoint!(process_instruction);
-fn process_instruction<'a>(
+fn process_instruction(
     program_id: &Pubkey,
-    accounts: &'a [AccountInfo<'a>],
+    accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
-    if let Err(error) = State::process(program_id, accounts, instruction_data) {
+    if let Err(error) = Processor::process(program_id, accounts, instruction_data) {
         // catch the error so we can print it
-        error.print::<Error>();
+        error.print::<SwapError>();
         return Err(error);
     }
     Ok(())

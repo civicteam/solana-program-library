@@ -1,24 +1,21 @@
 [workspace]
 members = [
-  "ci/client",
+  "associated-token-account/program",
+  "identity/program",
   "memo/program",
+  "shared-memory/program",
+  "stake-pool/cli",
+  "stake-pool/program",
+  "themis/program_ristretto",
+  "token-lending/program",
   "token-swap/program",
   "token/cli",
+  "token/perf-monitor",
   "token/program",
-  "token/program2",
+  "token/program-v3",
+  "utils/cgen",
+  "utils/test-client",
 ]
-
-# Workflow for developing against local Solana crates
-#
-# 0. Uncomment the below patches
-# 1. Replace PATH_TO_SOLANA with your local filestem path to the Solana mono-repo
-# 2. Run `cargo update`
-# 3. Use `cargo` normally
-#
-[patch.crates-io]
-#solana-account-decoder = {path = "PATH_TO_SOLANA/account-decoder" }
-#solana-clap-utils = {path = "PATH_TO_SOLANA/clap-utils" }
-#solana-cli-config = {path = "PATH_TO_SOLANA/cli-config" }
-#solana-client = { path = "PATH_TO_SOLANA/client"}
-#solana-logger = {path = "PATH_TO_SOLANA/logger" }
-#solana-sdk = { path = "PATH_TO_SOLANA/sdk" }
+exclude = [
+  "themis/client_ristretto",
+]

@@ -1,10 +1,10 @@
 # Token program
 
-A Fungible Token program on the Solana blockchain.
+A token program on the Solana blockchain, usable for fungible and non-fungible tokens.
 
 This program provides an interface and implementation that third parties can
 utilize to create and use their tokens.
 
-Full documentation is available at https://spl.solana.com
+Full documentation is available at https://spl.solana.com/token
 
-Javascript binding are available in the `./js` directory.
+JavaScript binding are available in the `./js` directory.

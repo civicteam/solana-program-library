@@ -2,6 +2,6 @@
 
 A Uniswap-like exchange for the Token program on the Solana blockchain.
 
-Full documentation is available at https://spl.solana.com
+Full documentation is available at https://spl.solana.com/token-swap
 
-Javascript binding are available in the `./js` directory.
+JavaScript binding are available in the `./js` directory.

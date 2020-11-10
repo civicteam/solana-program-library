@@ -1,11 +1,14 @@
 //! Instruction types
 
 use crate::error::TokenError;
-use solana_sdk::{
+use solana_program::{
     instruction::{AccountMeta, Instruction},
     program_error::ProgramError,
+    program_option::COption,
     pubkey::Pubkey,
+    sysvar,
 };
+use std::convert::TryInto;
 use std::mem::size_of;
 
 /// Minimum number of multisignature signers (min N)
@@ -17,81 +20,95 @@ pub const MAX_SIGNERS: usize = 11;
 #[repr(C)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum TokenInstruction {
-    /// Initializes a new mint and optionally deposits all the newly minted tokens in an account.
+    /// Initializes a new mint and optionally deposits all the newly minted
+    /// tokens in an account.
     ///
-    /// The `InitializeMint` instruction requires no signers and MUST be included within
-    /// the same Transaction as the system program's `CreateInstruction` that creates the account
-    /// being initialized.  Otherwise another party can acquire ownership of the uninitialized account.
+    /// The `InitializeMint` instruction requires no signers and MUST be
+    /// included within the same Transaction as the system program's
+    /// `CreateAccount` instruction that creates the account being initialized.
+    /// Otherwise another party can acquire ownership of the uninitialized
+    /// account.
     ///
     /// Accounts expected by this instruction:
     ///
     ///   0. `[writable]` The mint to initialize.
-    ///   1.
-    ///      * If supply is non-zero: `[writable]` The account to hold all the newly minted tokens.
-    ///      * If supply is zero: `[]` The owner/multisignature of the mint.
-    ///   2. `[]` (optional) The owner/multisignature of the mint if supply is non-zero, if
-    ///                      present then further minting is supported.
+    ///   1. `[]` Rent sysvar
     ///
     InitializeMint {
-        /// Initial amount of tokens to mint.
-        amount: u64,
         /// Number of base 10 digits to the right of the decimal place.
         decimals: u8,
+        /// The authority/multisignature to mint tokens.
+        mint_authority: Pubkey,
+        /// The freeze authority/multisignature of the mint.
+        freeze_authority: COption<Pubkey>,
     },
-    /// Initializes a new account to hold tokens.  If this account is associated with the native mint
-    /// then the token balance of the initialized account will be equal to the amount of SOL in the account.
+    /// Initializes a new account to hold tokens.  If this account is associated
+    /// with the native mint then the token balance of the initialized account
+    /// will be equal to the amount of SOL in the account. If this account is
+    /// associated with another mint, that mint must be initialized before this
+    /// command can succeed.
     ///
-    /// The `InitializeAccount` instruction requires no signers and MUST be included within
-    /// the same Transaction as the system program's `CreateInstruction` that creates the account
-    /// being initialized.  Otherwise another party can acquire ownership of the uninitialized account.
+    /// The `InitializeAccount` instruction requires no signers and MUST be
+    /// included within the same Transaction as the system program's
+    /// `CreateAccount` instruction that creates the account being initialized.
+    /// Otherwise another party can acquire ownership of the uninitialized
+    /// account.
     ///
     /// Accounts expected by this instruction:
     ///
     ///   0. `[writable]`  The account to initialize.
     ///   1. `[]` The mint this account will be associated with.
     ///   2. `[]` The new account's owner/multisignature.
+    ///   3. `[]` Rent sysvar
     InitializeAccount,
     /// Initializes a multisignature account with N provided signers.
     ///
-    /// Multisignature accounts can used in place of any single owner/delegate accounts in any
-    /// token instruction that require an owner/delegate to be present.  The variant field represents the
-    /// number of signers (M) required to validate this multisignature account.
+    /// Multisignature accounts can used in place of any single owner/delegate
+    /// accounts in any token instruction that require an owner/delegate to be
+    /// present.  The variant field represents the number of signers (M)
+    /// required to validate this multisignature account.
     ///
-    /// The `InitializeMultisig` instruction requires no signers and MUST be included within
-    /// the same Transaction as the system program's `CreateInstruction` that creates the account
-    /// being initialized.  Otherwise another party can acquire ownership of the uninitialized account.
+    /// The `InitializeMultisig` instruction requires no signers and MUST be
+    /// included within the same Transaction as the system program's
+    /// `CreateAccount` instruction that creates the account being initialized.
+    /// Otherwise another party can acquire ownership of the uninitialized
+    /// account.
     ///
     /// Accounts expected by this instruction:
     ///
     ///   0. `[writable]` The multisignature account to initialize.
-    ///   1. ..1+N. `[]` The signer accounts, must equal to N where 1 <= N <= 11.
+    ///   1. `[]` Rent sysvar
+    ///   2. ..2+N. `[]` The signer accounts, must equal to N where 1 <= N <=
+    ///      11.
     InitializeMultisig {
-        /// The number of signers (M) required to validate this multisignature account.
+        /// The number of signers (M) required to validate this multisignature
+        /// account.
         m: u8,
     },
-    /// Transfers tokens from one account to another either directly or via a delegate.  If this
-    /// account is associated with the native mint then equal amounts of SOL and Tokens will be
-    /// transferred to the destination account.
+    /// Transfers tokens from one account to another either directly or via a
+    /// delegate.  If this account is associated with the native mint then equal
+    /// amounts of SOL and Tokens will be transferred to the destination
+    /// account.
     ///
     /// Accounts expected by this instruction:
     ///
     ///   * Single owner/delegate
     ///   0. `[writable]` The source account.
     ///   1. `[writable]` The destination account.
-    ///   2. '[signer]' The source account's owner/delegate.
+    ///   2. `[signer]` The source account's owner/delegate.
     ///
     ///   * Multisignature owner/delegate
     ///   0. `[writable]` The source account.
     ///   1. `[writable]` The destination account.
-    ///   2. '[]' The source account's multisignature owner/delegate.
-    ///   3. ..3+M '[signer]' M signer accounts.
+    ///   2. `[]` The source account's multisignature owner/delegate.
+    ///   3. ..3+M `[signer]` M signer accounts.
     Transfer {
         /// The amount of tokens to transfer.
         amount: u64,
     },
-    /// Approves a delegate.  A delegate is given the authority over
-    /// tokens on behalf of the source account's owner.
-
+    /// Approves a delegate.  A delegate is given the authority over tokens on
+    /// behalf of the source account's owner.
+    ///
     /// Accounts expected by this instruction:
     ///
     ///   * Single owner
@@ -102,8 +119,8 @@ pub enum TokenInstruction {
     ///   * Multisignature owner
     ///   0. `[writable]` The source account.
     ///   1. `[]` The delegate.
-    ///   2. '[]' The source account's multisignature owner.
-    ///   3. ..3+M '[signer]' M signer accounts
+    ///   2. `[]` The source account's multisignature owner.
+    ///   3. ..3+M `[signer]` M signer accounts
     Approve {
         /// The amount of tokens the delegate is approved for.
         amount: u64,
@@ -118,55 +135,61 @@ pub enum TokenInstruction {
     ///
     ///   * Multisignature owner
     ///   0. `[writable]` The source account.
-    ///   1. '[]' The source account's multisignature owner.
-    ///   2. ..2+M '[signer]' M signer accounts
+    ///   1. `[]` The source account's multisignature owner.
+    ///   2. ..2+M `[signer]` M signer accounts
     Revoke,
-    /// Sets a new owner of a mint or account.
+    /// Sets a new authority of a mint or account.
     ///
     /// Accounts expected by this instruction:
     ///
-    ///   * Single owner
-    ///   0. `[writable]` The mint or account to change the owner of.
-    ///   1. `[]` The new owner/delegate/multisignature.
-    ///   2. `[signer]` The owner of the mint or account.
+    ///   * Single authority
+    ///   0. `[writable]` The mint or account to change the authority of.
+    ///   1. `[signer]` The current authority of the mint or account.
     ///
-    ///   * Multisignature owner
-    ///   0. `[writable]` The mint or account to change the owner of.
-    ///   1. `[]` The new owner/delegate/multisignature.
-    ///   2. `[]` The mint's or account's multisignature owner.
-    ///   3. ..3+M '[signer]' M signer accounts
-    SetOwner,
-    /// Mints new tokens to an account.  The native mint does not support minting.
+    ///   * Multisignature authority
+    ///   0. `[writable]` The mint or account to change the authority of.
+    ///   1. `[]` The mint's or account's current multisignature authority.
+    ///   2. ..2+M `[signer]` M signer accounts
+    SetAuthority {
+        /// The type of authority to update.
+        authority_type: AuthorityType,
+        /// The new authority
+        new_authority: COption<Pubkey>,
+    },
+    /// Mints new tokens to an account.  The native mint does not support
+    /// minting.
     ///
     /// Accounts expected by this instruction:
     ///
-    ///   * Single owner
+    ///   * Single authority
     ///   0. `[writable]` The mint.
     ///   1. `[writable]` The account to mint tokens to.
-    ///   2. `[signer]` The mint's owner.
+    ///   2. `[signer]` The mint's minting authority.
     ///
-    ///   * Multisignature owner
+    ///   * Multisignature authority
     ///   0. `[writable]` The mint.
     ///   1. `[writable]` The account to mint tokens to.
-    ///   2. `[]` The mint's multisignature owner.
-    ///   3. ..3+M '[signer]' M signer accounts.
+    ///   2. `[]` The mint's multisignature mint-tokens authority.
+    ///   3. ..3+M `[signer]` M signer accounts.
     MintTo {
         /// The amount of new tokens to mint.
         amount: u64,
     },
-    /// Burns tokens by removing them from an account.  `Burn` does not support accounts
-    /// associated with the native mint, use `CloseAccount` instead.
+    /// Burns tokens by removing them from an account.  `Burn` does not support
+    /// accounts associated with the native mint, use `CloseAccount` instead.
     ///
     /// Accounts expected by this instruction:
     ///
     ///   * Single owner/delegate
     ///   0. `[writable]` The account to burn from.
-    ///   1. `[signer]` The account's owner/delegate.
+    ///   1. `[writable]` The token mint.
+    ///   2. `[signer]` The account's owner/delegate.
     ///
     ///   * Multisignature owner/delegate
     ///   0. `[writable]` The account to burn from.
-    ///   1. `[]` The account's multisignature owner/delegate.
-    ///   2. ..2+M '[signer]' M signer accounts.
+    ///   1. `[writable]` The token mint.
+    ///   2. `[]` The account's multisignature owner/delegate.
+    ///   3. ..3+M `[signer]` M signer accounts.
     Burn {
         /// The amount of tokens to burn.
         amount: u64,
@@ -178,195 +201,415 @@ pub enum TokenInstruction {
     ///
     ///   * Single owner
     ///   0. `[writable]` The account to close.
-    ///   1. '[writable]' The destination account.
+    ///   1. `[writable]` The destination account.
     ///   2. `[signer]` The account's owner.
     ///
     ///   * Multisignature owner
     ///   0. `[writable]` The account to close.
-    ///   1. '[writable]' The destination account.
+    ///   1. `[writable]` The destination account.
     ///   2. `[]` The account's multisignature owner.
-    ///   3. ..3+M '[signer]' M signer accounts.
+    ///   3. ..3+M `[signer]` M signer accounts.
     CloseAccount,
+    /// Freeze an Initialized account using the Mint's freeze_authority (if
+    /// set).
+    ///
+    /// Accounts expected by this instruction:
+    ///
+    ///   * Single owner
+    ///   0. `[writable]` The account to freeze.
+    ///   1. `[]` The token mint.
+    ///   2. `[signer]` The mint freeze authority.
+    ///
+    ///   * Multisignature owner
+    ///   0. `[writable]` The account to freeze.
+    ///   1. `[]` The token mint.
+    ///   2. `[]` The mint's multisignature freeze authority.
+    ///   3. ..3+M `[signer]` M signer accounts.
+    FreezeAccount,
+    /// Thaw a Frozen account using the Mint's freeze_authority (if set).
+    ///
+    /// Accounts expected by this instruction:
+    ///
+    ///   * Single owner
+    ///   0. `[writable]` The account to freeze.
+    ///   1. `[]` The token mint.
+    ///   2. `[signer]` The mint freeze authority.
+    ///
+    ///   * Multisignature owner
+    ///   0. `[writable]` The account to freeze.
+    ///   1. `[]` The token mint.
+    ///   2. `[]` The mint's multisignature freeze authority.
+    ///   3. ..3+M `[signer]` M signer accounts.
+    ThawAccount,
+
+    /// Transfers tokens from one account to another either directly or via a
+    /// delegate.  If this account is associated with the native mint then equal
+    /// amounts of SOL and Tokens will be transferred to the destination
+    /// account.
+    ///
+    /// This instruction differs from Transfer in that the token mint and
+    /// decimals value is checked by the caller.  This may be useful when
+    /// creating transactions offline or within a hardware wallet.
+    ///
+    /// Accounts expected by this instruction:
+    ///
+    ///   * Single owner/delegate
+    ///   0. `[writable]` The source account.
+    ///   1. `[]` The token mint.
+    ///   2. `[writable]` The destination account.
+    ///   3. `[signer]` The source account's owner/delegate.
+    ///
+    ///   * Multisignature owner/delegate
+    ///   0. `[writable]` The source account.
+    ///   1. `[]` The token mint.
+    ///   2. `[writable]` The destination account.
+    ///   3. `[]` The source account's multisignature owner/delegate.
+    ///   4. ..4+M `[signer]` M signer accounts.
+    TransferChecked {
+        /// The amount of tokens to transfer.
+        amount: u64,
+        /// Expected number of base 10 digits to the right of the decimal place.
+        decimals: u8,
+    },
+    /// Approves a delegate.  A delegate is given the authority over tokens on
+    /// behalf of the source account's owner.
+    ///
+    /// This instruction differs from Approve in that the token mint and
+    /// decimals value is checked by the caller.  This may be useful when
+    /// creating transactions offline or within a hardware wallet.
+    ///
+    /// Accounts expected by this instruction:
+    ///
+    ///   * Single owner
+    ///   0. `[writable]` The source account.
+    ///   1. `[]` The token mint.
+    ///   2. `[]` The delegate.
+    ///   3. `[signer]` The source account owner.
+    ///
+    ///   * Multisignature owner
+    ///   0. `[writable]` The source account.
+    ///   1. `[]` The token mint.
+    ///   2. `[]` The delegate.
+    ///   3. `[]` The source account's multisignature owner.
+    ///   4. ..4+M `[signer]` M signer accounts
+    ApproveChecked {
+        /// The amount of tokens the delegate is approved for.
+        amount: u64,
+        /// Expected number of base 10 digits to the right of the decimal place.
+        decimals: u8,
+    },
+    /// Mints new tokens to an account.  The native mint does not support
+    /// minting.
+    ///
+    /// This instruction differs from MintTo in that the decimals value is
+    /// checked by the caller.  This may be useful when creating transactions
+    /// offline or within a hardware wallet.
+    ///
+    /// Accounts expected by this instruction:
+    ///
+    ///   * Single authority
+    ///   0. `[writable]` The mint.
+    ///   1. `[writable]` The account to mint tokens to.
+    ///   2. `[signer]` The mint's minting authority.
+    ///
+    ///   * Multisignature authority
+    ///   0. `[writable]` The mint.
+    ///   1. `[writable]` The account to mint tokens to.
+    ///   2. `[]` The mint's multisignature mint-tokens authority.
+    ///   3. ..3+M `[signer]` M signer accounts.
+    MintToChecked {
+        /// The amount of new tokens to mint.
+        amount: u64,
+        /// Expected number of base 10 digits to the right of the decimal place.
+        decimals: u8,
+    },
+    /// Burns tokens by removing them from an account.  `BurnChecked` does not
+    /// support accounts associated with the native mint, use `CloseAccount`
+    /// instead.
+    ///
+    /// This instruction differs from Burn in that the decimals value is checked
+    /// by the caller. This may be useful when creating transactions offline or
+    /// within a hardware wallet.
+    ///
+    /// Accounts expected by this instruction:
+    ///
+    ///   * Single owner/delegate
+    ///   0. `[writable]` The account to burn from.
+    ///   1. `[writable]` The token mint.
+    ///   2. `[signer]` The account's owner/delegate.
+    ///
+    ///   * Multisignature owner/delegate
+    ///   0. `[writable]` The account to burn from.
+    ///   1. `[writable]` The token mint.
+    ///   2. `[]` The account's multisignature owner/delegate.
+    ///   3. ..3+M `[signer]` M signer accounts.
+    BurnChecked {
+        /// The amount of tokens to burn.
+        amount: u64,
+        /// Expected number of base 10 digits to the right of the decimal place.
+        decimals: u8,
+    },
 }
 impl TokenInstruction {
     /// Unpacks a byte buffer into a [TokenInstruction](enum.TokenInstruction.html).
     pub fn unpack(input: &[u8]) -> Result<Self, ProgramError> {
-        if input.len() < size_of::<u8>() {
-            return Err(TokenError::InvalidInstruction.into());
-        }
-        Ok(match input[0] {
+        use TokenError::InvalidInstruction;
+
+        let (&tag, rest) = input.split_first().ok_or(InvalidInstruction)?;
+        Ok(match tag {
             0 => {
-                if input.len() < size_of::<u8>() + size_of::<u64>() + size_of::<u8>() {
-                    return Err(TokenError::InvalidInstruction.into());
+                let (&decimals, rest) = rest.split_first().ok_or(InvalidInstruction)?;
+                let (mint_authority, rest) = Self::unpack_pubkey(rest)?;
+                let (freeze_authority, _rest) = Self::unpack_pubkey_option(rest)?;
+                Self::InitializeMint {
+                    mint_authority,
+                    freeze_authority,
+                    decimals,
                 }
-                #[allow(clippy::cast_ptr_alignment)]
-                let amount = unsafe { *(&input[size_of::<u8>()] as *const u8 as *const u64) };
-                let decimals =
-                    unsafe { *(&input[size_of::<u8>() + size_of::<u64>()] as *const u8) };
-                Self::InitializeMint { amount, decimals }
             }
             1 => Self::InitializeAccount,
             2 => {
-                if input.len() < size_of::<u8>() + size_of::<u8>() {
-                    return Err(TokenError::InvalidInstruction.into());
-                }
-                #[allow(clippy::cast_ptr_alignment)]
-                let m = unsafe { *(&input[1] as *const u8) };
+                let &m = rest.get(0).ok_or(InvalidInstruction)?;
                 Self::InitializeMultisig { m }
             }
-            3 => {
-                if input.len() < size_of::<u8>() + size_of::<u64>() {
-                    return Err(TokenError::InvalidInstruction.into());
+            3 | 4 | 7 | 8 => {
+                let amount = rest
+                    .get(..8)
+                    .and_then(|slice| slice.try_into().ok())
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+                match tag {
+                    3 => Self::Transfer { amount },
+                    4 => Self::Approve { amount },
+                    7 => Self::MintTo { amount },
+                    8 => Self::Burn { amount },
+                    _ => unreachable!(),
                 }
-                #[allow(clippy::cast_ptr_alignment)]
-                let amount = unsafe { *(&input[size_of::<u8>()] as *const u8 as *const u64) };
-                Self::Transfer { amount }
-            }
-            4 => {
-                if input.len() < size_of::<u8>() + size_of::<u64>() {
-                    return Err(TokenError::InvalidInstruction.into());
-                }
-                #[allow(clippy::cast_ptr_alignment)]
-                let amount = unsafe { *(&input[size_of::<u8>()] as *const u8 as *const u64) };
-                Self::Approve { amount }
             }
             5 => Self::Revoke,
-            6 => Self::SetOwner,
-            7 => {
-                if input.len() < size_of::<u8>() + size_of::<u64>() {
-                    return Err(TokenError::InvalidInstruction.into());
+            6 => {
+                let (authority_type, rest) = rest
+                    .split_first()
+                    .ok_or_else(|| ProgramError::from(InvalidInstruction))
+                    .and_then(|(&t, rest)| Ok((AuthorityType::from(t)?, rest)))?;
+                let (new_authority, _rest) = Self::unpack_pubkey_option(rest)?;
+
+                Self::SetAuthority {
+                    authority_type,
+                    new_authority,
                 }
-                #[allow(clippy::cast_ptr_alignment)]
-                let amount = unsafe { *(&input[size_of::<u8>()] as *const u8 as *const u64) };
-                Self::MintTo { amount }
-            }
-            8 => {
-                if input.len() < size_of::<u8>() + size_of::<u64>() {
-                    return Err(TokenError::InvalidInstruction.into());
-                }
-                #[allow(clippy::cast_ptr_alignment)]
-                let amount = unsafe { *(&input[size_of::<u8>()] as *const u8 as *const u64) };
-                Self::Burn { amount }
             }
             9 => Self::CloseAccount,
+            10 => Self::FreezeAccount,
+            11 => Self::ThawAccount,
+            12 => {
+                let (amount, rest) = rest.split_at(8);
+                let amount = amount
+                    .try_into()
+                    .ok()
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+                let (&decimals, _rest) = rest.split_first().ok_or(InvalidInstruction)?;
+
+                Self::TransferChecked { amount, decimals }
+            }
+            13 => {
+                let (amount, rest) = rest.split_at(8);
+                let amount = amount
+                    .try_into()
+                    .ok()
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+                let (&decimals, _rest) = rest.split_first().ok_or(InvalidInstruction)?;
+
+                Self::ApproveChecked { amount, decimals }
+            }
+            14 => {
+                let (amount, rest) = rest.split_at(8);
+                let amount = amount
+                    .try_into()
+                    .ok()
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+                let (&decimals, _rest) = rest.split_first().ok_or(InvalidInstruction)?;
+
+                Self::MintToChecked { amount, decimals }
+            }
+            15 => {
+                let (amount, rest) = rest.split_at(8);
+                let amount = amount
+                    .try_into()
+                    .ok()
+                    .map(u64::from_le_bytes)
+                    .ok_or(InvalidInstruction)?;
+                let (&decimals, _rest) = rest.split_first().ok_or(InvalidInstruction)?;
+
+                Self::BurnChecked { amount, decimals }
+            }
+
             _ => return Err(TokenError::InvalidInstruction.into()),
         })
     }
 
     /// Packs a [TokenInstruction](enum.TokenInstruction.html) into a byte buffer.
-    pub fn pack(&self) -> Result<Vec<u8>, ProgramError> {
-        let mut output = vec![0u8; size_of::<TokenInstruction>()];
-        let mut output_len = 0;
+    pub fn pack(&self) -> Vec<u8> {
+        let mut buf = Vec::with_capacity(size_of::<Self>());
         match self {
-            Self::InitializeMint { amount, decimals } => {
-                output[output_len] = 0;
-                output_len += size_of::<u8>();
+            &Self::InitializeMint {
+                ref mint_authority,
+                ref freeze_authority,
+                decimals,
+            } => {
+                buf.push(0);
+                buf.push(decimals);
+                buf.extend_from_slice(mint_authority.as_ref());
+                Self::pack_pubkey_option(freeze_authority, &mut buf);
+            }
+            Self::InitializeAccount => buf.push(1),
+            &Self::InitializeMultisig { m } => {
+                buf.push(2);
+                buf.push(m);
+            }
+            &Self::Transfer { amount } => {
+                buf.push(3);
+                buf.extend_from_slice(&amount.to_le_bytes());
+            }
+            &Self::Approve { amount } => {
+                buf.push(4);
+                buf.extend_from_slice(&amount.to_le_bytes());
+            }
+            &Self::MintTo { amount } => {
+                buf.push(7);
+                buf.extend_from_slice(&amount.to_le_bytes());
+            }
+            &Self::Burn { amount } => {
+                buf.push(8);
+                buf.extend_from_slice(&amount.to_le_bytes());
+            }
+            Self::Revoke => buf.push(5),
+            Self::SetAuthority {
+                authority_type,
+                ref new_authority,
+            } => {
+                buf.push(6);
+                buf.push(authority_type.into());
+                Self::pack_pubkey_option(new_authority, &mut buf);
+            }
+            Self::CloseAccount => buf.push(9),
+            Self::FreezeAccount => buf.push(10),
+            Self::ThawAccount => buf.push(11),
+            &Self::TransferChecked { amount, decimals } => {
+                buf.push(12);
+                buf.extend_from_slice(&amount.to_le_bytes());
+                buf.push(decimals);
+            }
+            &Self::ApproveChecked { amount, decimals } => {
+                buf.push(13);
+                buf.extend_from_slice(&amount.to_le_bytes());
+                buf.push(decimals);
+            }
+            &Self::MintToChecked { amount, decimals } => {
+                buf.push(14);
+                buf.extend_from_slice(&amount.to_le_bytes());
+                buf.push(decimals);
+            }
+            &Self::BurnChecked { amount, decimals } => {
+                buf.push(15);
+                buf.extend_from_slice(&amount.to_le_bytes());
+                buf.push(decimals);
+            }
+        };
+        buf
+    }
 
-                #[allow(clippy::cast_ptr_alignment)]
-                let value = unsafe { &mut *(&mut output[output_len] as *mut u8 as *mut u64) };
-                *value = *amount;
-                output_len += size_of::<u64>();
-
-                let value = unsafe { &mut *(&mut output[output_len] as *mut u8) };
-                *value = *decimals;
-                output_len += size_of::<u8>();
-            }
-            Self::InitializeAccount => {
-                output[output_len] = 1;
-                output_len += size_of::<u8>();
-            }
-            Self::InitializeMultisig { m } => {
-                output[output_len] = 2;
-                output_len += size_of::<u8>();
-
-                #[allow(clippy::cast_ptr_alignment)]
-                let value = unsafe { &mut *(&mut output[output_len] as *mut u8 as *mut u8) };
-                *value = *m;
-                output_len += size_of::<u8>();
-            }
-            Self::Transfer { amount } => {
-                output[output_len] = 3;
-                output_len += size_of::<u8>();
-
-                #[allow(clippy::cast_ptr_alignment)]
-                let value = unsafe { &mut *(&mut output[output_len] as *mut u8 as *mut u64) };
-                *value = *amount;
-                output_len += size_of::<u64>();
-            }
-            Self::Approve { amount } => {
-                output[output_len] = 4;
-                output_len += size_of::<u8>();
-
-                #[allow(clippy::cast_ptr_alignment)]
-                let value = unsafe { &mut *(&mut output[output_len] as *mut u8 as *mut u64) };
-                *value = *amount;
-                output_len += size_of::<u64>();
-            }
-            Self::Revoke => {
-                output[output_len] = 5;
-                output_len += size_of::<u8>();
-            }
-            Self::SetOwner => {
-                output[output_len] = 6;
-                output_len += size_of::<u8>();
-            }
-            Self::MintTo { amount } => {
-                output[output_len] = 7;
-                output_len += size_of::<u8>();
-
-                #[allow(clippy::cast_ptr_alignment)]
-                let value = unsafe { &mut *(&mut output[output_len] as *mut u8 as *mut u64) };
-                *value = *amount;
-                output_len += size_of::<u64>();
-            }
-            Self::Burn { amount } => {
-                output[output_len] = 8;
-                output_len += size_of::<u8>();
-
-                #[allow(clippy::cast_ptr_alignment)]
-                let value = unsafe { &mut *(&mut output[output_len] as *mut u8 as *mut u64) };
-                *value = *amount;
-                output_len += size_of::<u64>();
-            }
-            Self::CloseAccount => {
-                output[output_len] = 9;
-                output_len += size_of::<u8>();
-            }
+    fn unpack_pubkey(input: &[u8]) -> Result<(Pubkey, &[u8]), ProgramError> {
+        if input.len() >= 32 {
+            let (key, rest) = input.split_at(32);
+            let pk = Pubkey::new(key);
+            Ok((pk, rest))
+        } else {
+            Err(TokenError::InvalidInstruction.into())
         }
+    }
 
-        output.truncate(output_len);
-        Ok(output)
+    fn unpack_pubkey_option(input: &[u8]) -> Result<(COption<Pubkey>, &[u8]), ProgramError> {
+        match input.split_first() {
+            Option::Some((&0, rest)) => Ok((COption::None, rest)),
+            Option::Some((&1, rest)) if rest.len() >= 32 => {
+                let (key, rest) = rest.split_at(32);
+                let pk = Pubkey::new(key);
+                Ok((COption::Some(pk), rest))
+            }
+            _ => Err(TokenError::InvalidInstruction.into()),
+        }
+    }
+
+    fn pack_pubkey_option(value: &COption<Pubkey>, buf: &mut Vec<u8>) {
+        match *value {
+            COption::Some(ref key) => {
+                buf.push(1);
+                buf.extend_from_slice(&key.to_bytes());
+            }
+            COption::None => buf.push(0),
+        }
     }
 }
 
-/// Creates a 'InitializeMint' instruction.
+/// Specifies the authority type for SetAuthority instructions
+#[repr(u8)]
+#[derive(Clone, Debug, PartialEq)]
+pub enum AuthorityType {
+    /// Authority to mint new tokens
+    MintTokens,
+    /// Authority to freeze any account associated with the Mint
+    FreezeAccount,
+    /// Owner of a given token account
+    AccountOwner,
+    /// Authority to close a token account
+    CloseAccount,
+}
+
+impl AuthorityType {
+    fn into(&self) -> u8 {
+        match self {
+            AuthorityType::MintTokens => 0,
+            AuthorityType::FreezeAccount => 1,
+            AuthorityType::AccountOwner => 2,
+            AuthorityType::CloseAccount => 3,
+        }
+    }
+
+    fn from(index: u8) -> Result<Self, ProgramError> {
+        match index {
+            0 => Ok(AuthorityType::MintTokens),
+            1 => Ok(AuthorityType::FreezeAccount),
+            2 => Ok(AuthorityType::AccountOwner),
+            3 => Ok(AuthorityType::CloseAccount),
+            _ => Err(TokenError::InvalidInstruction.into()),
+        }
+    }
+}
+
+/// Creates a `InitializeMint` instruction.
 pub fn initialize_mint(
     token_program_id: &Pubkey,
     mint_pubkey: &Pubkey,
-    account_pubkey: Option<&Pubkey>,
-    owner_pubkey: Option<&Pubkey>,
-    amount: u64,
+    mint_authority_pubkey: &Pubkey,
+    freeze_authority_pubkey: Option<&Pubkey>,
     decimals: u8,
 ) -> Result<Instruction, ProgramError> {
-    let data = TokenInstruction::InitializeMint { amount, decimals }.pack()?;
+    let freeze_authority = freeze_authority_pubkey.cloned().into();
+    let data = TokenInstruction::InitializeMint {
+        mint_authority: *mint_authority_pubkey,
+        freeze_authority,
+        decimals,
+    }
+    .pack();
 
-    let mut accounts = vec![AccountMeta::new(*mint_pubkey, false)];
-    if amount != 0 {
-        match account_pubkey {
-            Some(pubkey) => accounts.push(AccountMeta::new(*pubkey, false)),
-            None => {
-                return Err(ProgramError::NotEnoughAccountKeys);
-            }
-        }
-    }
-    match owner_pubkey {
-        Some(pubkey) => accounts.push(AccountMeta::new_readonly(*pubkey, false)),
-        None => {
-            if amount == 0 {
-                return Err(TokenError::OwnerRequiredIfNoInitialSupply.into());
-            }
-        }
-    }
+    let accounts = vec![
+        AccountMeta::new(*mint_pubkey, false),
+        AccountMeta::new_readonly(sysvar::rent::id(), false),
+    ];
 
     Ok(Instruction {
         program_id: *token_program_id,
@@ -382,12 +625,13 @@ pub fn initialize_account(
     mint_pubkey: &Pubkey,
     owner_pubkey: &Pubkey,
 ) -> Result<Instruction, ProgramError> {
-    let data = TokenInstruction::InitializeAccount.pack()?;
+    let data = TokenInstruction::InitializeAccount.pack(); // TODO do we need to return result?
 
     let accounts = vec![
         AccountMeta::new(*account_pubkey, false),
         AccountMeta::new_readonly(*mint_pubkey, false),
         AccountMeta::new_readonly(*owner_pubkey, false),
+        AccountMeta::new_readonly(sysvar::rent::id(), false),
     ];
 
     Ok(Instruction {
@@ -410,10 +654,11 @@ pub fn initialize_multisig(
     {
         return Err(ProgramError::MissingRequiredSignature);
     }
-    let data = TokenInstruction::InitializeMultisig { m }.pack()?;
+    let data = TokenInstruction::InitializeMultisig { m }.pack();
 
-    let mut accounts = Vec::with_capacity(1 + signer_pubkeys.len());
+    let mut accounts = Vec::with_capacity(1 + 1 + signer_pubkeys.len());
     accounts.push(AccountMeta::new(*multisig_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(sysvar::rent::id(), false));
     for signer_pubkey in signer_pubkeys.iter() {
         accounts.push(AccountMeta::new_readonly(**signer_pubkey, false));
     }
@@ -434,7 +679,7 @@ pub fn transfer(
     signer_pubkeys: &[&Pubkey],
     amount: u64,
 ) -> Result<Instruction, ProgramError> {
-    let data = TokenInstruction::Transfer { amount }.pack()?;
+    let data = TokenInstruction::Transfer { amount }.pack();
 
     let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
     accounts.push(AccountMeta::new(*source_pubkey, false));
@@ -444,7 +689,7 @@ pub fn transfer(
         signer_pubkeys.is_empty(),
     ));
     for signer_pubkey in signer_pubkeys.iter() {
-        accounts.push(AccountMeta::new(**signer_pubkey, true));
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
     }
 
     Ok(Instruction {
@@ -463,7 +708,7 @@ pub fn approve(
     signer_pubkeys: &[&Pubkey],
     amount: u64,
 ) -> Result<Instruction, ProgramError> {
-    let data = TokenInstruction::Approve { amount }.pack()?;
+    let data = TokenInstruction::Approve { amount }.pack();
 
     let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
     accounts.push(AccountMeta::new(*source_pubkey, false));
@@ -473,7 +718,7 @@ pub fn approve(
         signer_pubkeys.is_empty(),
     ));
     for signer_pubkey in signer_pubkeys.iter() {
-        accounts.push(AccountMeta::new(**signer_pubkey, true));
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
     }
 
     Ok(Instruction {
@@ -490,16 +735,16 @@ pub fn revoke(
     owner_pubkey: &Pubkey,
     signer_pubkeys: &[&Pubkey],
 ) -> Result<Instruction, ProgramError> {
-    let data = TokenInstruction::Revoke.pack()?;
+    let data = TokenInstruction::Revoke.pack();
 
     let mut accounts = Vec::with_capacity(2 + signer_pubkeys.len());
-    accounts.push(AccountMeta::new_readonly(*source_pubkey, false));
+    accounts.push(AccountMeta::new(*source_pubkey, false));
     accounts.push(AccountMeta::new_readonly(
         *owner_pubkey,
         signer_pubkeys.is_empty(),
     ));
     for signer_pubkey in signer_pubkeys.iter() {
-        accounts.push(AccountMeta::new(**signer_pubkey, true));
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
     }
 
     Ok(Instruction {
@@ -509,25 +754,30 @@ pub fn revoke(
     })
 }
 
-/// Creates a `SetOwner` instruction.
-pub fn set_owner(
+/// Creates a `SetAuthority` instruction.
+pub fn set_authority(
     token_program_id: &Pubkey,
     owned_pubkey: &Pubkey,
-    new_owner_pubkey: &Pubkey,
+    new_authority_pubkey: Option<&Pubkey>,
+    authority_type: AuthorityType,
     owner_pubkey: &Pubkey,
     signer_pubkeys: &[&Pubkey],
 ) -> Result<Instruction, ProgramError> {
-    let data = TokenInstruction::SetOwner.pack()?;
+    let new_authority = new_authority_pubkey.cloned().into();
+    let data = TokenInstruction::SetAuthority {
+        authority_type,
+        new_authority,
+    }
+    .pack();
 
     let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
     accounts.push(AccountMeta::new(*owned_pubkey, false));
-    accounts.push(AccountMeta::new_readonly(*new_owner_pubkey, false));
     accounts.push(AccountMeta::new_readonly(
         *owner_pubkey,
         signer_pubkeys.is_empty(),
     ));
     for signer_pubkey in signer_pubkeys.iter() {
-        accounts.push(AccountMeta::new(**signer_pubkey, true));
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
     }
 
     Ok(Instruction {
@@ -546,7 +796,7 @@ pub fn mint_to(
     signer_pubkeys: &[&Pubkey],
     amount: u64,
 ) -> Result<Instruction, ProgramError> {
-    let data = TokenInstruction::MintTo { amount }.pack()?;
+    let data = TokenInstruction::MintTo { amount }.pack();
 
     let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
     accounts.push(AccountMeta::new(*mint_pubkey, false));
@@ -556,7 +806,7 @@ pub fn mint_to(
         signer_pubkeys.is_empty(),
     ));
     for signer_pubkey in signer_pubkeys.iter() {
-        accounts.push(AccountMeta::new(**signer_pubkey, true));
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
     }
 
     Ok(Instruction {
@@ -570,20 +820,22 @@ pub fn mint_to(
 pub fn burn(
     token_program_id: &Pubkey,
     account_pubkey: &Pubkey,
+    mint_pubkey: &Pubkey,
     authority_pubkey: &Pubkey,
     signer_pubkeys: &[&Pubkey],
     amount: u64,
 ) -> Result<Instruction, ProgramError> {
-    let data = TokenInstruction::Burn { amount }.pack()?;
+    let data = TokenInstruction::Burn { amount }.pack();
 
-    let mut accounts = Vec::with_capacity(2 + signer_pubkeys.len());
+    let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
     accounts.push(AccountMeta::new(*account_pubkey, false));
+    accounts.push(AccountMeta::new(*mint_pubkey, false));
     accounts.push(AccountMeta::new_readonly(
         *authority_pubkey,
         signer_pubkeys.is_empty(),
     ));
     for signer_pubkey in signer_pubkeys.iter() {
-        accounts.push(AccountMeta::new(**signer_pubkey, true));
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
     }
 
     Ok(Instruction {
@@ -601,7 +853,7 @@ pub fn close_account(
     owner_pubkey: &Pubkey,
     signer_pubkeys: &[&Pubkey],
 ) -> Result<Instruction, ProgramError> {
-    let data = TokenInstruction::CloseAccount.pack()?;
+    let data = TokenInstruction::CloseAccount.pack();
 
     let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
     accounts.push(AccountMeta::new(*account_pubkey, false));
@@ -611,7 +863,189 @@ pub fn close_account(
         signer_pubkeys.is_empty(),
     ));
     for signer_pubkey in signer_pubkeys.iter() {
-        accounts.push(AccountMeta::new(**signer_pubkey, true));
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
+    }
+
+    Ok(Instruction {
+        program_id: *token_program_id,
+        accounts,
+        data,
+    })
+}
+
+/// Creates a `FreezeAccount` instruction.
+pub fn freeze_account(
+    token_program_id: &Pubkey,
+    account_pubkey: &Pubkey,
+    mint_pubkey: &Pubkey,
+    owner_pubkey: &Pubkey,
+    signer_pubkeys: &[&Pubkey],
+) -> Result<Instruction, ProgramError> {
+    let data = TokenInstruction::FreezeAccount.pack();
+
+    let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
+    accounts.push(AccountMeta::new(*account_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(*mint_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(
+        *owner_pubkey,
+        signer_pubkeys.is_empty(),
+    ));
+    for signer_pubkey in signer_pubkeys.iter() {
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
+    }
+
+    Ok(Instruction {
+        program_id: *token_program_id,
+        accounts,
+        data,
+    })
+}
+
+/// Creates a `ThawAccount` instruction.
+pub fn thaw_account(
+    token_program_id: &Pubkey,
+    account_pubkey: &Pubkey,
+    mint_pubkey: &Pubkey,
+    owner_pubkey: &Pubkey,
+    signer_pubkeys: &[&Pubkey],
+) -> Result<Instruction, ProgramError> {
+    let data = TokenInstruction::ThawAccount.pack();
+
+    let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
+    accounts.push(AccountMeta::new(*account_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(*mint_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(
+        *owner_pubkey,
+        signer_pubkeys.is_empty(),
+    ));
+    for signer_pubkey in signer_pubkeys.iter() {
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
+    }
+
+    Ok(Instruction {
+        program_id: *token_program_id,
+        accounts,
+        data,
+    })
+}
+
+/// Creates a `TransferChecked` instruction.
+#[allow(clippy::too_many_arguments)]
+pub fn transfer_checked(
+    token_program_id: &Pubkey,
+    source_pubkey: &Pubkey,
+    mint_pubkey: &Pubkey,
+    destination_pubkey: &Pubkey,
+    authority_pubkey: &Pubkey,
+    signer_pubkeys: &[&Pubkey],
+    amount: u64,
+    decimals: u8,
+) -> Result<Instruction, ProgramError> {
+    let data = TokenInstruction::TransferChecked { amount, decimals }.pack();
+
+    let mut accounts = Vec::with_capacity(4 + signer_pubkeys.len());
+    accounts.push(AccountMeta::new(*source_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(*mint_pubkey, false));
+    accounts.push(AccountMeta::new(*destination_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(
+        *authority_pubkey,
+        signer_pubkeys.is_empty(),
+    ));
+    for signer_pubkey in signer_pubkeys.iter() {
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
+    }
+
+    Ok(Instruction {
+        program_id: *token_program_id,
+        accounts,
+        data,
+    })
+}
+
+/// Creates an `ApproveChecked` instruction.
+#[allow(clippy::too_many_arguments)]
+pub fn approve_checked(
+    token_program_id: &Pubkey,
+    source_pubkey: &Pubkey,
+    mint_pubkey: &Pubkey,
+    delegate_pubkey: &Pubkey,
+    owner_pubkey: &Pubkey,
+    signer_pubkeys: &[&Pubkey],
+    amount: u64,
+    decimals: u8,
+) -> Result<Instruction, ProgramError> {
+    let data = TokenInstruction::ApproveChecked { amount, decimals }.pack();
+
+    let mut accounts = Vec::with_capacity(4 + signer_pubkeys.len());
+    accounts.push(AccountMeta::new(*source_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(*mint_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(*delegate_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(
+        *owner_pubkey,
+        signer_pubkeys.is_empty(),
+    ));
+    for signer_pubkey in signer_pubkeys.iter() {
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
+    }
+
+    Ok(Instruction {
+        program_id: *token_program_id,
+        accounts,
+        data,
+    })
+}
+
+/// Creates a `MintToChecked` instruction.
+pub fn mint_to_checked(
+    token_program_id: &Pubkey,
+    mint_pubkey: &Pubkey,
+    account_pubkey: &Pubkey,
+    owner_pubkey: &Pubkey,
+    signer_pubkeys: &[&Pubkey],
+    amount: u64,
+    decimals: u8,
+) -> Result<Instruction, ProgramError> {
+    let data = TokenInstruction::MintToChecked { amount, decimals }.pack();
+
+    let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
+    accounts.push(AccountMeta::new(*mint_pubkey, false));
+    accounts.push(AccountMeta::new(*account_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(
+        *owner_pubkey,
+        signer_pubkeys.is_empty(),
+    ));
+    for signer_pubkey in signer_pubkeys.iter() {
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
+    }
+
+    Ok(Instruction {
+        program_id: *token_program_id,
+        accounts,
+        data,
+    })
+}
+
+/// Creates a `BurnChecked` instruction.
+pub fn burn_checked(
+    token_program_id: &Pubkey,
+    account_pubkey: &Pubkey,
+    mint_pubkey: &Pubkey,
+    authority_pubkey: &Pubkey,
+    signer_pubkeys: &[&Pubkey],
+    amount: u64,
+    decimals: u8,
+) -> Result<Instruction, ProgramError> {
+    let data = TokenInstruction::BurnChecked { amount, decimals }.pack();
+
+    let mut accounts = Vec::with_capacity(3 + signer_pubkeys.len());
+    accounts.push(AccountMeta::new(*account_pubkey, false));
+    accounts.push(AccountMeta::new(*mint_pubkey, false));
+    accounts.push(AccountMeta::new_readonly(
+        *authority_pubkey,
+        signer_pubkeys.is_empty(),
+    ));
+    for signer_pubkey in signer_pubkeys.iter() {
+        accounts.push(AccountMeta::new_readonly(**signer_pubkey, true));
     }
 
     Ok(Instruction {
@@ -623,7 +1057,7 @@ pub fn close_account(
 
 /// Utility function that checks index is between MIN_SIGNERS and MAX_SIGNERS
 pub fn is_valid_signer_index(index: usize) -> bool {
-    !(index < MIN_SIGNERS || index > MAX_SIGNERS)
+    (MIN_SIGNERS..=MAX_SIGNERS).contains(&index)
 }
 
 #[cfg(test)]
@@ -633,74 +1067,150 @@ mod test {
     #[test]
     fn test_instruction_packing() {
         let check = TokenInstruction::InitializeMint {
-            amount: 1,
             decimals: 2,
+            mint_authority: Pubkey::new(&[1u8; 32]),
+            freeze_authority: COption::None,
         };
-        let packed = check.pack().unwrap();
-        let expect = Vec::from([0u8, 1, 0, 0, 0, 0, 0, 0, 0, 2]);
+        let packed = check.pack();
+        let mut expect = Vec::from([0u8, 2]);
+        expect.extend_from_slice(&[1u8; 32]);
+        expect.extend_from_slice(&[0]);
+        assert_eq!(packed, expect);
+        let unpacked = TokenInstruction::unpack(&expect).unwrap();
+        assert_eq!(unpacked, check);
+
+        let check = TokenInstruction::InitializeMint {
+            decimals: 2,
+            mint_authority: Pubkey::new(&[2u8; 32]),
+            freeze_authority: COption::Some(Pubkey::new(&[3u8; 32])),
+        };
+        let packed = check.pack();
+        let mut expect = vec![0u8, 2];
+        expect.extend_from_slice(&[2u8; 32]);
+        expect.extend_from_slice(&[1]);
+        expect.extend_from_slice(&[3u8; 32]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
         let check = TokenInstruction::InitializeAccount;
-        let packed = check.pack().unwrap();
+        let packed = check.pack();
         let expect = Vec::from([1u8]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
         let check = TokenInstruction::InitializeMultisig { m: 1 };
-        let packed = check.pack().unwrap();
+        let packed = check.pack();
         let expect = Vec::from([2u8, 1]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
         let check = TokenInstruction::Transfer { amount: 1 };
-        let packed = check.pack().unwrap();
+        let packed = check.pack();
         let expect = Vec::from([3u8, 1, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
         let check = TokenInstruction::Approve { amount: 1 };
-        let packed = check.pack().unwrap();
+        let packed = check.pack();
         let expect = Vec::from([4u8, 1, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
         let check = TokenInstruction::Revoke;
-        let packed = check.pack().unwrap();
+        let packed = check.pack();
         let expect = Vec::from([5u8]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
-        let check = TokenInstruction::SetOwner;
-        let packed = check.pack().unwrap();
-        let expect = Vec::from([6u8]);
+        let check = TokenInstruction::SetAuthority {
+            authority_type: AuthorityType::FreezeAccount,
+            new_authority: COption::Some(Pubkey::new(&[4u8; 32])),
+        };
+        let packed = check.pack();
+        let mut expect = Vec::from([6u8, 1]);
+        expect.extend_from_slice(&[1]);
+        expect.extend_from_slice(&[4u8; 32]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
         let check = TokenInstruction::MintTo { amount: 1 };
-        let packed = check.pack().unwrap();
+        let packed = check.pack();
         let expect = Vec::from([7u8, 1, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
         let check = TokenInstruction::Burn { amount: 1 };
-        let packed = check.pack().unwrap();
+        let packed = check.pack();
         let expect = Vec::from([8u8, 1, 0, 0, 0, 0, 0, 0, 0]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);
 
         let check = TokenInstruction::CloseAccount;
-        let packed = check.pack().unwrap();
+        let packed = check.pack();
         let expect = Vec::from([9u8]);
+        assert_eq!(packed, expect);
+        let unpacked = TokenInstruction::unpack(&expect).unwrap();
+        assert_eq!(unpacked, check);
+
+        let check = TokenInstruction::FreezeAccount;
+        let packed = check.pack();
+        let expect = Vec::from([10u8]);
+        assert_eq!(packed, expect);
+        let unpacked = TokenInstruction::unpack(&expect).unwrap();
+        assert_eq!(unpacked, check);
+
+        let check = TokenInstruction::ThawAccount;
+        let packed = check.pack();
+        let expect = Vec::from([11u8]);
+        assert_eq!(packed, expect);
+        let unpacked = TokenInstruction::unpack(&expect).unwrap();
+        assert_eq!(unpacked, check);
+
+        let check = TokenInstruction::TransferChecked {
+            amount: 1,
+            decimals: 2,
+        };
+        let packed = check.pack();
+        let expect = Vec::from([12u8, 1, 0, 0, 0, 0, 0, 0, 0, 2]);
+        assert_eq!(packed, expect);
+        let unpacked = TokenInstruction::unpack(&expect).unwrap();
+        assert_eq!(unpacked, check);
+
+        let check = TokenInstruction::ApproveChecked {
+            amount: 1,
+            decimals: 2,
+        };
+        let packed = check.pack();
+        let expect = Vec::from([13u8, 1, 0, 0, 0, 0, 0, 0, 0, 2]);
+        assert_eq!(packed, expect);
+        let unpacked = TokenInstruction::unpack(&expect).unwrap();
+        assert_eq!(unpacked, check);
+
+        let check = TokenInstruction::MintToChecked {
+            amount: 1,
+            decimals: 2,
+        };
+        let packed = check.pack();
+        let expect = Vec::from([14u8, 1, 0, 0, 0, 0, 0, 0, 0, 2]);
+        assert_eq!(packed, expect);
+        let unpacked = TokenInstruction::unpack(&expect).unwrap();
+        assert_eq!(unpacked, check);
+
+        let check = TokenInstruction::BurnChecked {
+            amount: 1,
+            decimals: 2,
+        };
+        let packed = check.pack();
+        let expect = Vec::from([15u8, 1, 0, 0, 0, 0, 0, 0, 0, 2]);
         assert_eq!(packed, expect);
         let unpacked = TokenInstruction::unpack(&expect).unwrap();
         assert_eq!(unpacked, check);

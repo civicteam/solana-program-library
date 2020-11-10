@@ -1,36 +1,89 @@
 // @flow
 
 import fs from 'mz/fs';
-import semver from 'semver';
-import { Account, Connection, BpfLoader, PublicKey } from '@solana/web3.js';
+import {
+  Account,
+  Connection,
+  BpfLoader,
+  PublicKey,
+  BPF_LOADER_PROGRAM_ID,
+} from '@solana/web3.js';
 
-import { Token, u64 } from '../../../token/js/client/token';
-import { TokenSwap } from '../client/token-swap';
-import { Store } from '../client/util/store';
-import { newAccountWithLamports } from '../client/util/new-account-with-lamports';
-import { url } from '../url';
-import { sleep } from '../client/util/sleep';
+import {Token} from '../../../token/js/client/token';
+import {Identity} from '../../../identity/js/dist';
+import {TokenSwap, CurveType} from '../client/token-swap';
+import {Store} from '../client/util/store';
+import {newAccountWithLamports} from '../client/util/new-account-with-lamports';
+import {url} from '../url';
+import {sleep} from '../client/util/sleep';
+
+// for testing only - not cryptographically-secure
+const randomUUID = size => [...Array(size)].map(_=>(Math.random()*36|0).toString(36)).join``;
 
 // The following globals are created by `createTokenSwap` and used by subsequent tests
 // Token swap
 let tokenSwap: TokenSwap;
 // authority of the token and accounts
 let authority: PublicKey;
+// nonce used to generate the authority public key
+let nonce: number;
 // owner of the user accounts
 let owner: Account;
 // Token pool
 let tokenPool: Token;
 let tokenAccountPool: PublicKey;
+let feeAccount: PublicKey;
 // Tokens swapped
 let mintA: Token;
 let mintB: Token;
 let tokenAccountA: PublicKey;
 let tokenAccountB: PublicKey;
 
+// the user's on-chain identity
+let identityAccount: PublicKey;
+// a dummy attestation hash, possessed by the user, attested to by the IDV
+// and passed by the user to the on-chain token-swap program
+const attestation = randomUUID(32);
+// the identity validator for the pool
+let idv: Account;
+
+// Hard-coded fee address, for testing production mode
+const SWAP_PROGRAM_OWNER_FEE_ADDRESS =
+  process.env.SWAP_PROGRAM_OWNER_FEE_ADDRESS;
+
+// Pool fees
+const TRADING_FEE_NUMERATOR = 25;
+const TRADING_FEE_DENOMINATOR = 10000;
+const OWNER_TRADING_FEE_NUMERATOR = 5;
+const OWNER_TRADING_FEE_DENOMINATOR = 10000;
+const OWNER_WITHDRAW_FEE_NUMERATOR = SWAP_PROGRAM_OWNER_FEE_ADDRESS ? 0 : 1;
+const OWNER_WITHDRAW_FEE_DENOMINATOR = SWAP_PROGRAM_OWNER_FEE_ADDRESS ? 0 : 6;
+const HOST_FEE_NUMERATOR = 20;
+const HOST_FEE_DENOMINATOR = 100;
+
+// curve type used to calculate swaps and deposits
+const CURVE_TYPE = CurveType.ConstantProduct;
+
 // Initial amount in each swap token
-const BASE_AMOUNT = 1000;
-// Amount passed to instructions
-const USER_AMOUNT = 100;
+let currentSwapTokenA = 1000000;
+let currentSwapTokenB = 1000000;
+let currentFeeAmount = 0;
+
+// Swap instruction constants
+// Because there is no withdraw fee in the production version, these numbers
+// need to get slightly tweaked in the two cases.
+const SWAP_AMOUNT_IN = 100000;
+const SWAP_AMOUNT_OUT = SWAP_PROGRAM_OWNER_FEE_ADDRESS ? 90662 : 90675;
+const SWAP_FEE = SWAP_PROGRAM_OWNER_FEE_ADDRESS ? 22272 : 22276;
+const HOST_SWAP_FEE = SWAP_PROGRAM_OWNER_FEE_ADDRESS
+  ? Math.floor((SWAP_FEE * HOST_FEE_NUMERATOR) / HOST_FEE_DENOMINATOR)
+  : 0;
+const OWNER_SWAP_FEE = SWAP_FEE - HOST_SWAP_FEE;
+
+// Pool token amount minted on init
+const DEFAULT_POOL_TOKEN_AMOUNT = 1000000000;
+// Pool token amount to withdraw / deposit
+const POOL_TOKEN_AMOUNT = 10000000;
 
 function assert(condition, message) {
   if (!condition) {
@@ -43,116 +96,151 @@ let connection;
 async function getConnection(): Promise<Connection> {
   if (connection) return connection;
 
-  let newConnection = new Connection(url, 'recent',);
-  const version = await newConnection.getVersion();
+  connection = new Connection(url, 'recent');
+  const version = await connection.getVersion();
 
-  // commitment params are only supported >= 0.21.0
-  const solanaCoreVersion = version['solana-core'].split(' ')[0];
-  if (semver.gte(solanaCoreVersion, '0.21.0')) {
-    newConnection = new Connection(url, 'recent');
-  }
-
-  // eslint-disable-next-line require-atomic-updates
-  connection = newConnection;
   console.log('Connection to cluster established:', url, version);
-  return newConnection;
+  return connection;
 }
 
-async function loadProgram(connection: Connection, path: string): Promise<PublicKey> {
+async function loadProgram(
+  connection: Connection,
+  path: string,
+): Promise<PublicKey> {
   const NUM_RETRIES = 500; /* allow some number of retries */
-  const data = await fs.readFile(path
-  );
-  const { feeCalculator } = await connection.getRecentBlockhash();
+  const data = await fs.readFile(path);
+  const {feeCalculator} = await connection.getRecentBlockhash();
   const balanceNeeded =
     feeCalculator.lamportsPerSignature *
-    (BpfLoader.getMinNumSignatures(data.length) + NUM_RETRIES) +
+      (BpfLoader.getMinNumSignatures(data.length) + NUM_RETRIES) +
     (await connection.getMinimumBalanceForRentExemption(data.length));
 
   const from = await newAccountWithLamports(connection, balanceNeeded);
   const program_account = new Account();
   console.log('Loading program:', path);
-  await BpfLoader.load(connection, from, program_account, data);
+  await BpfLoader.load(
+    connection,
+    from,
+    program_account,
+    data,
+    BPF_LOADER_PROGRAM_ID,
+  );
   return program_account.publicKey;
 }
 
-async function GetPrograms(connection: Connection): Promise<[PublicKey, PublicKey]> {
+async function GetPrograms(
+  connection: Connection,
+): Promise<[PublicKey, PublicKey]> {
   const store = new Store();
   let tokenProgramId = null;
   let tokenSwapProgramId = null;
+  let identityProgramId = null;
   try {
     const config = await store.load('config.json');
     console.log('Using pre-loaded Token and Token-swap programs');
-    console.log('  Note: To reload programs remove client/util/store/config.json');
+    console.log(
+      '  Note: To reload programs remove client/util/store/config.json',
+    );
     tokenProgramId = new PublicKey(config.tokenProgramId);
     tokenSwapProgramId = new PublicKey(config.tokenSwapProgramId);
+    identityProgramId = new PublicKey(config.identityProgramId);
   } catch (err) {
-    tokenProgramId = await loadProgram(connection, '../../target/bpfel-unknown-unknown/release/spl_token.so');
-    tokenSwapProgramId = await loadProgram(connection, '../../target/bpfel-unknown-unknown/release/spl_token_swap.so');
+    tokenSwapProgramId = await loadProgram(
+      connection,
+      '../../target/bpfel-unknown-unknown/release/spl_token_swap.so',
+    );
+
+    await sleep(10000);
+    tokenProgramId = await loadProgram(
+      connection,
+      '../../target/bpfel-unknown-unknown/release/spl_token.so',
+    );
+
+    await sleep(10000);
+    identityProgramId = await loadProgram(
+      connection,
+      '../../target/bpfel-unknown-unknown/release/spl_identity.so',
+    );
     await store.save('config.json', {
       tokenProgramId: tokenProgramId.toString(),
-      tokenSwapProgramId: tokenSwapProgramId.toString()
+      tokenSwapProgramId: tokenSwapProgramId.toString(),
+      identityProgramId: identityProgramId.toString(),
     });
   }
-  return [tokenProgramId, tokenSwapProgramId];
+  return [tokenProgramId, tokenSwapProgramId, identityProgramId];
 }
 
 export async function loadPrograms(): Promise<void> {
   const connection = await getConnection();
-  const [tokenProgramId, tokenSwapProgramId] = await GetPrograms(connection);
+  const [tokenProgramId, tokenSwapProgramId, identityProgramId] = await GetPrograms(connection);
 
   console.log('Token Program ID', tokenProgramId.toString());
   console.log('Token-swap Program ID', tokenSwapProgramId.toString());
+  console.log('Identity Program ID', identityProgramId.toString());
 }
 
 export async function createTokenSwap(): Promise<void> {
   const connection = await getConnection();
   const [tokenProgramId, tokenSwapProgramId] = await GetPrograms(connection);
-  const payer = await newAccountWithLamports(connection, 100000000000 /* wag */);
-  owner = await newAccountWithLamports(connection, 100000000000 /* wag */);
+  const payer = await newAccountWithLamports(connection, 1000000000);
+  owner = await newAccountWithLamports(connection, 1000000000);
   const tokenSwapAccount = new Account();
-  authority = await PublicKey.createProgramAddress(
+
+  console.log('creating IDV');
+  idv = await newAccountWithLamports(connection, 1000000000);
+
+  [authority, nonce] = await PublicKey.findProgramAddress(
     [tokenSwapAccount.publicKey.toBuffer()],
-    tokenSwapProgramId
+    tokenSwapProgramId,
   );
 
-  // create pool
-  [tokenPool, tokenAccountPool] = await Token.createMint(
+  console.log('creating pool mint');
+  tokenPool = await Token.createMint(
     connection,
     payer,
     authority,
-    owner.publicKey,
-    new u64(0),
+    null,
     2,
     tokenProgramId,
-    true,
   );
 
-  // create token A
-  [mintA, tokenAccountA] = await Token.createMint(
+  console.log('creating pool account');
+  tokenAccountPool = await tokenPool.createAccount(owner.publicKey);
+  const ownerKey = SWAP_PROGRAM_OWNER_FEE_ADDRESS || owner.publicKey.toString();
+  feeAccount = await tokenPool.createAccount(new PublicKey(ownerKey));
+
+  console.log('creating token A');
+  mintA = await Token.createMint(
     connection,
     payer,
     owner.publicKey,
-    authority,
-    new u64(BASE_AMOUNT),
+    null,
     2,
     tokenProgramId,
-    true,
   );
 
-  // create token B
-  [mintB, tokenAccountB] = await Token.createMint(
+  console.log('creating token A account');
+  tokenAccountA = await mintA.createAccount(authority);
+  console.log('minting token A to swap');
+  await mintA.mintTo(tokenAccountA, owner, [], currentSwapTokenA);
+
+  console.log('creating token B');
+  mintB = await Token.createMint(
     connection,
     payer,
     owner.publicKey,
-    authority,
-    new u64(BASE_AMOUNT),
+    null,
     2,
     tokenProgramId,
-    true,
   );
 
-  // create token swap
-  const swapPayer = await newAccountWithLamports(connection, 100000000000 /* wag */);
+  console.log('creating token B account');
+  tokenAccountB = await mintB.createAccount(authority);
+  console.log('minting token B to swap');
+  await mintB.mintTo(tokenAccountB, owner, [], currentSwapTokenB);
+
+  console.log('creating token swap');
+  const swapPayer = await newAccountWithLamports(connection, 10000000000);
   tokenSwap = await TokenSwap.createTokenSwap(
     connection,
     swapPayer,
@@ -161,152 +249,239 @@ export async function createTokenSwap(): Promise<void> {
     tokenAccountA,
     tokenAccountB,
     tokenPool.publicKey,
+    mintA.publicKey,
+    mintB.publicKey,
+    feeAccount,
     tokenAccountPool,
+    idv.publicKey,
+    tokenSwapProgramId,
     tokenProgramId,
-    1,
-    4,
-    tokenSwapProgramId
+    nonce,
+    CURVE_TYPE,
+    TRADING_FEE_NUMERATOR,
+    TRADING_FEE_DENOMINATOR,
+    OWNER_TRADING_FEE_NUMERATOR,
+    OWNER_TRADING_FEE_DENOMINATOR,
+    OWNER_WITHDRAW_FEE_NUMERATOR,
+    OWNER_WITHDRAW_FEE_DENOMINATOR,
+    HOST_FEE_NUMERATOR,
+    HOST_FEE_DENOMINATOR,
   );
 
-  const swapInfo = await tokenSwap.getInfo();
-  assert(swapInfo.tokenAccountA.equals(tokenAccountA));
-  assert(swapInfo.tokenAccountB.equals(tokenAccountB));
-  assert(swapInfo.tokenPool.equals(tokenPool.publicKey));
-  assert(1 == swapInfo.feesNumerator.toNumber());
-  assert(4 == swapInfo.feesDenominator.toNumber());
+  console.log('loading token swap');
+  const fetchedTokenSwap = await TokenSwap.loadTokenSwap(
+    connection,
+    tokenSwapAccount.publicKey,
+    tokenSwapProgramId,
+    swapPayer,
+  );
+
+  assert(fetchedTokenSwap.tokenProgramId.equals(tokenProgramId));
+  assert(fetchedTokenSwap.tokenAccountA.equals(tokenAccountA));
+  assert(fetchedTokenSwap.tokenAccountB.equals(tokenAccountB));
+  assert(fetchedTokenSwap.mintA.equals(mintA.publicKey));
+  assert(fetchedTokenSwap.mintB.equals(mintB.publicKey));
+  assert(fetchedTokenSwap.poolToken.equals(tokenPool.publicKey));
+  assert(fetchedTokenSwap.feeAccount.equals(feeAccount));
+  assert(fetchedTokenSwap.idv.equals(idv.publicKey));
+  assert(CURVE_TYPE == fetchedTokenSwap.curveType);
+  assert(
+    TRADING_FEE_NUMERATOR == fetchedTokenSwap.tradeFeeNumerator.toNumber(),
+  );
+  assert(
+    TRADING_FEE_DENOMINATOR == fetchedTokenSwap.tradeFeeDenominator.toNumber(),
+  );
+  assert(
+    OWNER_TRADING_FEE_NUMERATOR ==
+      fetchedTokenSwap.ownerTradeFeeNumerator.toNumber(),
+  );
+  assert(
+    OWNER_TRADING_FEE_DENOMINATOR ==
+      fetchedTokenSwap.ownerTradeFeeDenominator.toNumber(),
+  );
+  assert(
+    OWNER_WITHDRAW_FEE_NUMERATOR ==
+      fetchedTokenSwap.ownerWithdrawFeeNumerator.toNumber(),
+  );
+  assert(
+    OWNER_WITHDRAW_FEE_DENOMINATOR ==
+      fetchedTokenSwap.ownerWithdrawFeeDenominator.toNumber(),
+  );
+  assert(HOST_FEE_NUMERATOR == fetchedTokenSwap.hostFeeNumerator.toNumber());
+  assert(
+    HOST_FEE_DENOMINATOR == fetchedTokenSwap.hostFeeDenominator.toNumber(),
+  );
 }
 
 export async function deposit(): Promise<void> {
-  let userAccountA = await mintA.createAccount(owner.publicKey);
-  await mintA.mintTo(userAccountA, owner, [], USER_AMOUNT);
-  await mintA.approve(
-    userAccountA,
-    authority,
-    owner,
-    [],
-    USER_AMOUNT,
-  );
-  let userAccountB = await mintB.createAccount(owner.publicKey);
-  await mintB.mintTo(userAccountB, owner, [], USER_AMOUNT);
-  await mintB.approve(
-    userAccountB,
-    authority,
-    owner,
-    [],
-    USER_AMOUNT,
-  );
-  let newAccountPool = await tokenPool.createAccount(owner.publicKey);
-  const [tokenProgramId,] = await GetPrograms(connection);
+  const poolMintInfo = await tokenPool.getMintInfo();
+  const supply = poolMintInfo.supply.toNumber();
+  const swapTokenA = await mintA.getAccountInfo(tokenAccountA);
+  const tokenA = (swapTokenA.amount.toNumber() * POOL_TOKEN_AMOUNT) / supply;
+  const swapTokenB = await mintB.getAccountInfo(tokenAccountB);
+  const tokenB = (swapTokenB.amount.toNumber() * POOL_TOKEN_AMOUNT) / supply;
 
+  console.log('Creating depositor token a account');
+  const userAccountA = await mintA.createAccount(owner.publicKey);
+  await mintA.mintTo(userAccountA, owner, [], tokenA);
+  await mintA.approve(userAccountA, authority, owner, [], tokenA);
+  console.log('Creating depositor token b account');
+  const userAccountB = await mintB.createAccount(owner.publicKey);
+  await mintB.mintTo(userAccountB, owner, [], tokenB);
+  await mintB.approve(userAccountB, authority, owner, [], tokenB);
+  console.log('Creating depositor pool token account');
+  const newAccountPool = await tokenPool.createAccount(owner.publicKey);
+
+  console.log('Depositing into swap');
   await tokenSwap.deposit(
-    authority,
     userAccountA,
     userAccountB,
-    tokenAccountA,
-    tokenAccountB,
-    tokenPool.publicKey,
     newAccountPool,
-    tokenProgramId,
-    USER_AMOUNT,
+    POOL_TOKEN_AMOUNT,
+    tokenA,
+    tokenB,
   );
 
   let info;
   info = await mintA.getAccountInfo(userAccountA);
-  console.log('userAccountA', info.amount.toNumber());
-  assert(info.amount.toNumber() == 0);
   assert(info.amount.toNumber() == 0);
   info = await mintB.getAccountInfo(userAccountB);
-  console.log('userAccountB', info.amount.toNumber());
   assert(info.amount.toNumber() == 0);
   info = await mintA.getAccountInfo(tokenAccountA);
-  console.log('tokenAccountA', info.amount.toNumber());
-  assert(info.amount.toNumber() == BASE_AMOUNT + USER_AMOUNT);
+  assert(info.amount.toNumber() == currentSwapTokenA + tokenA);
+  currentSwapTokenA += tokenA;
   info = await mintB.getAccountInfo(tokenAccountB);
-  console.log('tokenAccountB', info.amount.toNumber());
-  assert(info.amount.toNumber() == BASE_AMOUNT + USER_AMOUNT);
+  assert(info.amount.toNumber() == currentSwapTokenB + tokenB);
+  currentSwapTokenB += tokenB;
   info = await tokenPool.getAccountInfo(newAccountPool);
-  console.log('newAccountPool', info.amount.toNumber());
-  assert(info.amount.toNumber() == USER_AMOUNT);
+  assert(info.amount.toNumber() == POOL_TOKEN_AMOUNT);
 }
 
 export async function withdraw(): Promise<void> {
+  const poolMintInfo = await tokenPool.getMintInfo();
+  const supply = poolMintInfo.supply.toNumber();
+  let swapTokenA = await mintA.getAccountInfo(tokenAccountA);
+  let swapTokenB = await mintB.getAccountInfo(tokenAccountB);
+  let feeAmount = 0;
+  if (OWNER_WITHDRAW_FEE_NUMERATOR !== 0) {
+    feeAmount = Math.floor(
+      (POOL_TOKEN_AMOUNT * OWNER_WITHDRAW_FEE_NUMERATOR) /
+        OWNER_WITHDRAW_FEE_DENOMINATOR,
+    );
+  }
+  const poolTokenAmount = POOL_TOKEN_AMOUNT - feeAmount;
+  const tokenA = Math.floor(
+    (swapTokenA.amount.toNumber() * poolTokenAmount) / supply,
+  );
+  const tokenB = Math.floor(
+    (swapTokenB.amount.toNumber() * poolTokenAmount) / supply,
+  );
+
+  console.log('Creating withdraw token A account');
   let userAccountA = await mintA.createAccount(owner.publicKey);
+  console.log('Creating withdraw token B account');
   let userAccountB = await mintB.createAccount(owner.publicKey);
+
+  console.log('Approving withdrawal from pool account');
   await tokenPool.approve(
     tokenAccountPool,
     authority,
     owner,
     [],
-    USER_AMOUNT,
+    POOL_TOKEN_AMOUNT,
   );
-  const [tokenProgramId,] = await GetPrograms(connection);
 
+  console.log('Withdrawing pool tokens for A and B tokens');
   await tokenSwap.withdraw(
-    authority,
-    tokenAccountPool,
-    tokenAccountA,
-    tokenAccountB,
     userAccountA,
     userAccountB,
-    tokenProgramId,
-    USER_AMOUNT
+    tokenAccountPool,
+    POOL_TOKEN_AMOUNT,
+    tokenA,
+    tokenB,
   );
 
-  let info;
-  info = await tokenPool.getAccountInfo(tokenAccountPool);
-  console.log('tokenAccountPool', info.amount.toNumber());
-  assert(info.amount.toNumber() == BASE_AMOUNT - USER_AMOUNT);
-  info = await mintA.getAccountInfo(tokenAccountA);
-  console.log('tokenAccountA', info.amount.toNumber());
-  assert(info.amount.toNumber() == BASE_AMOUNT);
-  info = await mintB.getAccountInfo(tokenAccountB);
-  console.log('tokenAccountB', info.amount.toNumber());
-  assert(info.amount.toNumber() == BASE_AMOUNT);
+  //const poolMintInfo = await tokenPool.getMintInfo();
+  swapTokenA = await mintA.getAccountInfo(tokenAccountA);
+  swapTokenB = await mintB.getAccountInfo(tokenAccountB);
+
+  let info = await tokenPool.getAccountInfo(tokenAccountPool);
+  assert(
+    info.amount.toNumber() == DEFAULT_POOL_TOKEN_AMOUNT - POOL_TOKEN_AMOUNT,
+  );
+  assert(swapTokenA.amount.toNumber() == currentSwapTokenA - tokenA);
+  currentSwapTokenA -= tokenA;
+  assert(swapTokenB.amount.toNumber() == currentSwapTokenB - tokenB);
+  currentSwapTokenB -= tokenB;
   info = await mintA.getAccountInfo(userAccountA);
-  console.log('userAccountA', info.amount.toNumber());
-  assert(info.amount.toNumber() == USER_AMOUNT);
+  assert(info.amount.toNumber() == tokenA);
   info = await mintB.getAccountInfo(userAccountB);
-  console.log('userAccountB', info.amount.toNumber());
-  assert(info.amount.toNumber() == USER_AMOUNT);
+  assert(info.amount.toNumber() == tokenB);
+  info = await tokenPool.getAccountInfo(feeAccount);
+  assert(info.amount.toNumber() == feeAmount);
+  currentFeeAmount = feeAmount;
+}
+
+export async function createIdentityAccount(): Promise<void> {
+  const [, , identityProgramId] = await GetPrograms(connection);
+  const identity = new Identity(connection, identityProgramId, owner);
+  console.log('Creating the identity account', {
+    identityProgramId: identityProgramId.toBase58()
+  });
+  identityAccount = await identity.createAccount(owner.publicKey);
+
+  console.log('As the IDV, adding an attestation to the account');
+  await identity.attest(identityAccount, idv, attestation);
 }
 
 export async function swap(): Promise<void> {
+  console.log('Creating swap token a account');
   let userAccountA = await mintA.createAccount(owner.publicKey);
-  await mintA.mintTo(userAccountA, owner, [], USER_AMOUNT);
-  await mintA.approve(
-    userAccountA,
-    authority,
-    owner,
-    [],
-    USER_AMOUNT,
-  );
+  await mintA.mintTo(userAccountA, owner, [], SWAP_AMOUNT_IN);
+  await mintA.approve(userAccountA, authority, owner, [], SWAP_AMOUNT_IN);
+  console.log('Creating swap token b account');
   let userAccountB = await mintB.createAccount(owner.publicKey);
-  const [tokenProgramId,] = await GetPrograms(connection);
+  let poolAccount = SWAP_PROGRAM_OWNER_FEE_ADDRESS
+    ? await tokenPool.createAccount(owner.publicKey)
+    : null;
 
+  console.log('Swapping');
   await tokenSwap.swap(
-    authority,
     userAccountA,
     tokenAccountA,
     tokenAccountB,
     userAccountB,
-    tokenProgramId,
-    USER_AMOUNT,
+    identityAccount,
+    poolAccount,
+    SWAP_AMOUNT_IN,
+    SWAP_AMOUNT_OUT,
   );
   await sleep(500);
   let info;
   info = await mintA.getAccountInfo(userAccountA);
-  console.log('userAccountA', info.amount.toNumber());
   assert(info.amount.toNumber() == 0);
-  info = await mintA.getAccountInfo(tokenAccountA);
-  console.log('tokenAccountA', info.amount.toNumber());
-  assert(info.amount.toNumber() == BASE_AMOUNT + USER_AMOUNT);
-  info = await mintB.getAccountInfo(tokenAccountB);
-  console.log('tokenAccountB', info.amount.toNumber());
-  assert(info.amount.toNumber() == 931);
+
   info = await mintB.getAccountInfo(userAccountB);
-  console.log('userAccountB', info.amount.toNumber());
-  assert(info.amount.toNumber() == 69);
+  assert(info.amount.toNumber() == SWAP_AMOUNT_OUT);
+
+  info = await mintA.getAccountInfo(tokenAccountA);
+  assert(info.amount.toNumber() == currentSwapTokenA + SWAP_AMOUNT_IN);
+  currentSwapTokenA -= SWAP_AMOUNT_IN;
+
+  info = await mintB.getAccountInfo(tokenAccountB);
+  assert(info.amount.toNumber() == currentSwapTokenB - SWAP_AMOUNT_OUT);
+  currentSwapTokenB -= SWAP_AMOUNT_OUT;
+
   info = await tokenPool.getAccountInfo(tokenAccountPool);
-  console.log('tokenAccountPool', info.amount.toNumber());
-  assert(info.amount.toNumber() == BASE_AMOUNT - USER_AMOUNT);
+  assert(
+    info.amount.toNumber() == DEFAULT_POOL_TOKEN_AMOUNT - POOL_TOKEN_AMOUNT,
+  );
+
+  info = await tokenPool.getAccountInfo(feeAccount);
+  assert(info.amount.toNumber() == currentFeeAmount + OWNER_SWAP_FEE);
+
+  if (poolAccount != null) {
+    info = await tokenPool.getAccountInfo(poolAccount);
+    assert(info.amount.toNumber() == HOST_SWAP_FEE);
+  }
 }

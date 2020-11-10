@@ -1,32 +1,25 @@
-//! Program entrypoint definitions
+//! Program entrypoint
 
-#![cfg(feature = "program")]
-#![cfg(not(feature = "no-entrypoint"))]
-
-use solana_sdk::{
+use solana_program::{
     account_info::AccountInfo, entrypoint, entrypoint::ProgramResult, program_error::ProgramError,
     pubkey::Pubkey,
 };
 use std::str::from_utf8;
 
 entrypoint!(process_instruction);
-fn process_instruction<'a>(
+fn process_instruction(
     _program_id: &Pubkey,
-    _accounts: &'a [AccountInfo<'a>],
+    _accounts: &[AccountInfo],
     instruction_data: &[u8],
 ) -> ProgramResult {
     from_utf8(instruction_data).map_err(|_| ProgramError::InvalidInstructionData)?;
     Ok(())
 }
 
-// Pull in syscall stubs when building for non-BPF targets
-#[cfg(not(target_arch = "bpf"))]
-solana_sdk::program_stubs!();
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use solana_sdk::{program_error::ProgramError, pubkey::Pubkey};
+    use solana_program::{program_error::ProgramError, pubkey::Pubkey};
 
     #[test]
     fn test_utf8_memo() {

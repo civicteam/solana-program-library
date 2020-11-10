@@ -15,7 +15,8 @@ export function sendAndConfirmTransaction(
   ...signers: Array<Account>
 ): Promise<TransactionSignature> {
   return realSendAndConfirmTransaction(connection, transaction, signers, {
-    confirmations: 1,
-    skipPreflight: true,
+    skipPreflight: false,
+    commitment: 'recent',
+    preflightCommitment: 'recent',
   });
 }
