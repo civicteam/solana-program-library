@@ -266,6 +266,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "476e9cd489f9e121e02ffa6014a8ef220ecb15c05ed23fc34cca13925dc283fb"
 
 [[package]]
+name = "bs58"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "771fe0050b883fcc3ea2359b1a96bcfbc090b7116eae7c3c512c7a083fdf23d3"
+
+[[package]]
 name = "bumpalo"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -684,13 +690,12 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "2.1.0"
-source = "git+https://github.com/garious/curve25519-dalek?rev=60efef3553d6bf3d7f3b09b5f97acd54d72529ff#60efef3553d6bf3d7f3b09b5f97acd54d72529ff"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d85653f070353a16313d0046f173f70d1aadd5b42600a14de626f0dfb3473a5"
 dependencies = [
- "borsh",
  "byteorder",
  "digest 0.8.1",
  "rand_core",
- "serde",
  "subtle 2.2.3",
  "zeroize",
 ]
@@ -698,12 +703,13 @@ dependencies = [
 [[package]]
 name = "curve25519-dalek"
 version = "2.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d85653f070353a16313d0046f173f70d1aadd5b42600a14de626f0dfb3473a5"
+source = "git+https://github.com/garious/curve25519-dalek?rev=60efef3553d6bf3d7f3b09b5f97acd54d72529ff#60efef3553d6bf3d7f3b09b5f97acd54d72529ff"
 dependencies = [
+ "borsh",
  "byteorder",
  "digest 0.8.1",
  "rand_core",
+ "serde",
  "subtle 2.2.3",
  "zeroize",
 ]
@@ -2651,7 +2657,7 @@ dependencies = [
  "Inflector",
  "base64 0.12.3",
  "bincode",
- "bs58",
+ "bs58 0.3.1",
  "bv",
  "lazy_static",
  "serde",
@@ -2788,7 +2794,7 @@ checksum = "b64a1b90e869c6da1ac5935d8823af3766a3b223f133cadc57bab98245c322ed"
 dependencies = [
  "base64 0.13.0",
  "bincode",
- "bs58",
+ "bs58 0.3.1",
  "clap",
  "indicatif",
  "jsonrpc-core",
@@ -2855,7 +2861,7 @@ version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "361e984c8afd2bf8a20ef0bdbfffb5ff7f94d74bc57e04c8818a87a055fd340b"
 dependencies = [
- "bs58",
+ "bs58 0.3.1",
  "bv",
  "generic-array 0.14.3",
  "log",
@@ -2950,7 +2956,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b2781e0c9fbf82b5ab2093820048e926401e5473c31ec35eea993825bd9ca537"
 dependencies = [
  "bincode",
- "bs58",
+ "bs58 0.3.1",
  "bv",
  "curve25519-dalek 2.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "hex",
@@ -3081,7 +3087,7 @@ checksum = "0b137c94925588c790864ffa39cd16f4b8de1d3ad6184c4583cc13344babd183"
 dependencies = [
  "assert_matches",
  "bincode",
- "bs58",
+ "bs58 0.3.1",
  "bv",
  "byteorder",
  "chrono",
@@ -3123,7 +3129,7 @@ version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4e581ace8ccecf2b5111362ff22d9085a144a11bbc0305d6d4a988b73cecb9b7"
 dependencies = [
- "bs58",
+ "bs58 0.3.1",
  "proc-macro2 1.0.24",
  "quote 1.0.7",
  "rustversion",
@@ -3176,7 +3182,7 @@ dependencies = [
  "Inflector",
  "base64 0.12.3",
  "bincode",
- "bs58",
+ "bs58 0.3.1",
  "lazy_static",
  "serde",
  "serde_derive",
@@ -3324,7 +3330,7 @@ dependencies = [
 name = "spl-stake-pool-cli"
 version = "2.0.1"
 dependencies = [
- "bs58",
+ "bs58 0.4.0",
  "clap",
  "serde_json",
  "solana-account-decoder",
