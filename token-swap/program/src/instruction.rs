@@ -8,8 +8,7 @@ use solana_program::{
     instruction::{AccountMeta, Instruction},
     program_error::ProgramError,
     program_pack::Pack,
-    pubkey::Pubkey,
-    info,
+    pubkey::Pubkey
 };
 use std::convert::TryInto;
 use std::mem::size_of;
