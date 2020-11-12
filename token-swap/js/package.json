@@ -1,6 +1,6 @@
 {
-  "name": "@solana/spl-token-swap",
-  "version": "0.0.4",
+  "name": "@civic/spl-token-swap",
+  "version": "0.0.6",
   "description": "SPL Token Swap JavaScript API",
   "license": "MIT",
   "author": "Solana Maintainers <maintainers@solana.foundation>",
