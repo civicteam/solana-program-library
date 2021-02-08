@@ -15,7 +15,7 @@ production = []
 arrayref = "0.3.6"
 num-derive = "0.3"
 num-traits = "0.2"
-solana-program = "1.4.4"
+solana-program = "1.4.26"
 spl-identity = { path = "../../identity/program", features = [ "no-entrypoint" ] }
 spl-token = { path = "../../token/program", features = [ "no-entrypoint" ] }
 thiserror = "1.0"
