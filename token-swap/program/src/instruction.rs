@@ -351,6 +351,7 @@ pub fn initialize(
     pool_pubkey: &Pubkey,
     fee_pubkey: &Pubkey,
     destination_pubkey: &Pubkey,
+    idv_pubkey: &Pubkey,
     nonce: u8,
     fees: Fees,
     swap_curve: SwapCurve,
@@ -370,6 +371,7 @@ pub fn initialize(
         AccountMeta::new(*pool_pubkey, false),
         AccountMeta::new_readonly(*fee_pubkey, false),
         AccountMeta::new(*destination_pubkey, false),
+        AccountMeta::new_readonly(*idv_pubkey, false),
         AccountMeta::new_readonly(*token_program_id, false),
     ];
 
@@ -541,6 +543,7 @@ pub fn swap(
     destination_pubkey: &Pubkey,
     pool_mint_pubkey: &Pubkey,
     pool_fee_pubkey: &Pubkey,
+    identity_pubkey: &Pubkey,
     host_fee_pubkey: Option<&Pubkey>,
     instruction: Swap,
 ) -> Result<Instruction, ProgramError> {
@@ -556,6 +559,7 @@ pub fn swap(
         AccountMeta::new(*destination_pubkey, false),
         AccountMeta::new(*pool_mint_pubkey, false),
         AccountMeta::new(*pool_fee_pubkey, false),
+        AccountMeta::new_readonly(*identity_pubkey, true),
         AccountMeta::new_readonly(*token_program_id, false),
     ];
     if let Some(host_fee_pubkey) = host_fee_pubkey {

@@ -120,6 +120,8 @@ pub struct SwapV1 {
 
     /// All fee information
     pub fees: Fees,
+    /// Validator of identities allowed to use the swap program
+    pub idv: Pubkey,
 
     /// Swap curve parameters, to be unpacked and used by the SwapCurve, which
     /// calculates swaps, deposits, and withdrawals
@@ -225,6 +227,7 @@ impl Pack for SwapV1 {
             token_b_mint,
             pool_fee_account,
             fees,
+            idv,
             swap_curve,
         ) = array_refs![input, 1, 1, 32, 32, 32, 32, 32, 32, 32, 64, 33];
         Ok(Self {
@@ -242,6 +245,7 @@ impl Pack for SwapV1 {
             token_b_mint: Pubkey::new_from_array(*token_b_mint),
             pool_fee_account: Pubkey::new_from_array(*pool_fee_account),
             fees: Fees::unpack_from_slice(fees)?,
+            idv: Pubkey::new_from_array(*idv),
             swap_curve: SwapCurve::unpack_from_slice(swap_curve)?,
         })
     }
@@ -336,6 +340,7 @@ mod tests {
             token_b_mint: TEST_TOKEN_B_MINT,
             pool_fee_account: TEST_POOL_FEE_ACCOUNT,
             fees: TEST_FEES,
+            idv,
             swap_curve,
         };
 
