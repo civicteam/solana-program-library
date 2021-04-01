@@ -6,7 +6,7 @@ use solana_program::{
     program_error::ProgramError,
     pubkey::Pubkey,
     sysvar,
-    info,
+    msg,
 };
 
 /// Minimum number of multisignature signers (min N)
@@ -54,7 +54,7 @@ pub enum IdentityInstruction {
 impl IdentityInstruction {
     /// Serializes an [IdentityInstruction](enum.IdentityInstruction.html) into a byte buffer.
     pub fn serialize(&self) -> Result<Vec<u8>, ProgramError> {
-        info!("insrtuction serialize");
+        msg!("insrtuction serialize");
         self.try_to_vec()
             .map_err(|_| ProgramError::AccountDataTooSmall)
     }
@@ -71,7 +71,7 @@ pub fn initialize_identity(
     account_pubkey: &Pubkey,
     owner_pubkey: &Pubkey,
 ) -> Result<Instruction, ProgramError> {
-    info!("initialize_identity: start");
+    msg!("initialize_identity: start");
     let data = IdentityInstruction::InitializeIdentity; // TODO do we need to return result?
 
     let accounts = vec![
@@ -79,7 +79,7 @@ pub fn initialize_identity(
         AccountMeta::new_readonly(*owner_pubkey, false),
         AccountMeta::new_readonly(sysvar::rent::id(), false),
     ];
-    info!("initialize_identity: accounts created");
+    msg!("initialize_identity: accounts created");
 
     Ok(Instruction {
         program_id: *identity_program_id,

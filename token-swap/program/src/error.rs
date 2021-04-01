@@ -91,6 +91,9 @@ pub enum SwapError {
     /// The operation cannot be performed on the given curve
     #[error("The operation cannot be performed on the given curve")]
     UnsupportedCurveOperation,
+    /// The provided Identity does not have an attestation registered by the pool IDV
+    #[error("The provided identity does not have an attestation registered by the pool IDV")]
+    UnauthorizedIdentity
 }
 impl From<SwapError> for ProgramError {
     fn from(e: SwapError) -> Self {

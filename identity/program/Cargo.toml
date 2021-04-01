@@ -20,6 +20,7 @@ solana-program = "1.4.3"
 thiserror = "1.0"
 arrayref = "0.3.6"
 num_enum = "0.5.1"
+spl-token = { version = "3.1", path = "../../token/program", features = [ "no-entrypoint" ] }
 
 [dev-dependencies]
 

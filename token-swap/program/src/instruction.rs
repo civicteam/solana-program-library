@@ -107,7 +107,9 @@ pub enum SwapInstruction {
     ///   Must be empty, not owned by swap authority
     ///   6. `[writable]` Pool Token Account to deposit the initial pool token
     ///   supply.  Must be empty, not owned by swap authority.
-    ///   7. '[]` Token program id
+    ///   7. `[]` Gatekeeper key - the key of the gatekeeper for the swap.
+    ///   Gateway tokens must be signed by this key. 
+    ///   8. '[]` Token program id
     Initialize(Initialize),
 
     ///   Swap the tokens in the pool.

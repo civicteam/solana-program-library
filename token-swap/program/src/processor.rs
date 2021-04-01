@@ -44,14 +44,23 @@ impl Processor {
         }
     }
 
-    /// Unpacks an identity `Account`.
+    /// Unpacks an identity `Account`. TODO remove
     pub fn unpack_identity_account(data: &[u8]) -> Result<spl_identity::state::IdentityAccount, SwapError> {
         spl_identity::state::IdentityAccount::deserialize2(data).map_err(|_| SwapError::ExpectedAccount)
     }
 
-    /// Verifies an identity `Account` is owned by the swap caller and signed by the IdV.
+    /// Unpacks a gateway token
+    pub fn unpack_gateway_token(account_info: &AccountInfo, token_program_id: &Pubkey) -> Result<spl_token::state::Mint, SwapError> {
+        Self::unpack_mint(account_info, token_program_id).map_err(|_| SwapError::ExpectedAccount)
+    }
+
+    /// Verifies an identity `Account` is owned by the swap caller and signed by the IdV. TODO remove
     pub fn verify_identity_account(account: &spl_identity::state::IdentityAccount, expected_owner: &Pubkey, idv: &Pubkey) -> Result<(), SwapError> {
         spl_identity::processor::Processor::verify(account, expected_owner, idv).map_err(|_| SwapError::UnauthorizedIdentity)
+    }
+    /// Verifiess a gateway token is owned by the swap caller, signed by the Gatekeeper and not revoked
+    pub fn verify_gateway_token(token: &spl_token::state::Mint, expected_owner: &Pubkey, idv: &Pubkey) -> Result<(), SwapError> {
+        spl_identity::processor::Processor::verify_gateway_token(token, expected_owner, idv).map_err(|_| SwapError::UnauthorizedIdentity)
     }
 
     /// Unpacks a spl_token `Mint`.
@@ -325,7 +334,7 @@ impl Processor {
             pool_mint: *pool_mint_info.key,
             token_a_mint: token_a.mint,
             token_b_mint: token_b.mint,
-            pool_fee_account: *fee_account_info.key,            
+            pool_fee_account: *fee_account_info.key,
             idv: *idv_info.key,
             fees,
             swap_curve,
@@ -398,17 +407,17 @@ impl Processor {
             Self::unpack_token_account(swap_destination_info, &token_swap.token_program_id())?;
         let pool_mint = Self::unpack_mint(pool_mint_info, &token_swap.token_program_id())?;
 
-        let identity_account = Self::unpack_identity_account(&identity_account_info.data.borrow())?;
-
+        msg!("User transfer authority {}, authority {}", user_transfer_authority_info.key, authority_info.key);
+        
+        let gateway_token = Self::unpack_gateway_token(identity_account_info, &token_swap.token_program_id())?;
         // verify that the user is allowed to use the pool
-        let identity_verification_result = Self::verify_identity_account
-            (&identity_account, &user_source_account.owner, &token_swap.idv);
-
+        let identity_verification_result = Self::verify_gateway_token
+            (&gateway_token, &user_transfer_authority_info.key, &token_swap.idv());
         // Stop if identity verification fails
         if identity_verification_result.is_err() {
             return identity_verification_result.map_err(|e| Into::<ProgramError>::into(e))
         }
-        
+
         let trade_direction = if *swap_source_info.key == *token_swap.token_a_account() {
             TradeDirection::AtoB
         } else {
@@ -1031,10 +1040,10 @@ impl Processor {
         let instruction = SwapInstruction::unpack(input)?;
         match instruction {
             SwapInstruction::Initialize(Initialize {
-                nonce,
-                fees,
-                swap_curve,
-            }) => {
+                                            nonce,
+                                            fees,
+                                            swap_curve,
+                                        }) => {
                 msg!("Instruction: Init");
                 Self::process_initialize(
                     program_id,
@@ -1046,17 +1055,17 @@ impl Processor {
                 )
             }
             SwapInstruction::Swap(Swap {
-                amount_in,
-                minimum_amount_out,
-            }) => {
+                                      amount_in,
+                                      minimum_amount_out,
+                                  }) => {
                 msg!("Instruction: Swap");
                 Self::process_swap(program_id, amount_in, minimum_amount_out, accounts)
             }
             SwapInstruction::DepositAllTokenTypes(DepositAllTokenTypes {
-                pool_token_amount,
-                maximum_token_a_amount,
-                maximum_token_b_amount,
-            }) => {
+                                                      pool_token_amount,
+                                                      maximum_token_a_amount,
+                                                      maximum_token_b_amount,
+                                                  }) => {
                 msg!("Instruction: DepositAllTokenTypes");
                 Self::process_deposit_all_token_types(
                     program_id,
@@ -1067,10 +1076,10 @@ impl Processor {
                 )
             }
             SwapInstruction::WithdrawAllTokenTypes(WithdrawAllTokenTypes {
-                pool_token_amount,
-                minimum_token_a_amount,
-                minimum_token_b_amount,
-            }) => {
+                                                       pool_token_amount,
+                                                       minimum_token_a_amount,
+                                                       minimum_token_b_amount,
+                                                   }) => {
                 msg!("Instruction: WithdrawAllTokenTypes");
                 Self::process_withdraw_all_token_types(
                     program_id,
@@ -1114,8 +1123,8 @@ impl Processor {
 
 impl PrintProgramError for SwapError {
     fn print<E>(&self)
-    where
-        E: 'static + std::error::Error + DecodeError<E> + PrintProgramError + FromPrimitive,
+        where
+            E: 'static + std::error::Error + DecodeError<E> + PrintProgramError + FromPrimitive,
     {
         match self {
             SwapError::AlreadyInUse => msg!("Error: Swap account already in use"),
@@ -1175,6 +1184,9 @@ impl PrintProgramError for SwapError {
             }
             SwapError::UnsupportedCurveOperation => {
                 msg!("Error: The operation cannot be performed on the given curve")
+            }
+            SwapError::UnauthorizedIdentity => {
+                msg!("Error: Invalid gateway token")
             }
         }
     }
@@ -1288,11 +1300,16 @@ mod tests {
         token_b_account: Account,
         token_b_mint_key: Pubkey,
         token_b_mint_account: Account,
+        gatekeeper_key: Pubkey,
+        gatekeeper_account: Account,
+        gateway_mint_key: Pubkey,
+        gateway_mint_account: Account
     }
 
     impl SwapAccountInfo {
         pub fn new(
             user_key: &Pubkey,
+            user_transfer_key: &Pubkey,
             fees: Fees,
             swap_curve: SwapCurve,
             token_a_amount: u64,
@@ -1342,6 +1359,12 @@ mod tests {
                 token_b_amount,
             );
 
+            let gatekeeper_key = Pubkey::new_unique();
+            // TODO Space and owner need to change
+            // TODO integrate gatekeeper key with account
+            let gatekeeper_account = Account::new(0, SwapVersion::LATEST_LEN, &SWAP_PROGRAM_ID);
+            let (gateway_mint_key, gateway_mint_account) = SwapAccountInfo::create_gateway_token(&user_transfer_key, &gatekeeper_key);
+
             SwapAccountInfo {
                 nonce,
                 authority_key,
@@ -1363,7 +1386,17 @@ mod tests {
                 token_b_account,
                 token_b_mint_key,
                 token_b_mint_account,
+                gatekeeper_key,
+                gatekeeper_account,
+                gateway_mint_key,
+                gateway_mint_account,
             }
+        }
+
+        fn create_gateway_token(user_transfer_key: &Pubkey, gatekeeper_key: &Pubkey) -> (Pubkey, Account) {
+            let (gateway_mint_key, gateway_mint_account) =
+                create_mint(&TOKEN_PROGRAM_ID, &user_transfer_key, Some(&gatekeeper_key));
+            (gateway_mint_key, gateway_mint_account)
         }
 
         pub fn initialize_swap(&mut self) -> ProgramResult {
@@ -1378,11 +1411,12 @@ mod tests {
                     &self.pool_mint_key,
                     &self.pool_fee_key,
                     &self.pool_token_key,
+                    &self.gatekeeper_key,
                     self.nonce,
                     self.fees.clone(),
                     self.swap_curve.clone(),
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut self.swap_account,
                     &mut Account::default(),
@@ -1391,6 +1425,7 @@ mod tests {
                     &mut self.pool_mint_account,
                     &mut self.pool_fee_account,
                     &mut self.pool_token_account,
+                    &mut self.gatekeeper_account,
                     &mut Account::default(),
                 ],
             )
@@ -1462,16 +1497,17 @@ mod tests {
         pub fn swap(
             &mut self,
             user_key: &Pubkey,
+            user_transfer_key: &Pubkey,
             user_source_key: &Pubkey,
             mut user_source_account: &mut Account,
             swap_source_key: &Pubkey,
             swap_destination_key: &Pubkey,
             user_destination_key: &Pubkey,
             mut user_destination_account: &mut Account,
+            gateway_token: &Pubkey,
             amount_in: u64,
             minimum_amount_out: u64,
         ) -> ProgramResult {
-            let user_transfer_key = Pubkey::new_unique();
             // approve moving from user source account
             do_process_instruction(
                 approve(
@@ -1482,14 +1518,14 @@ mod tests {
                     &[],
                     amount_in,
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut user_source_account,
                     &mut Account::default(),
                     &mut Account::default(),
                 ],
             )
-            .unwrap();
+                .unwrap();
 
             let mut swap_source_account = self.get_token_account(swap_source_key).clone();
             let mut swap_destination_account = self.get_token_account(swap_destination_key).clone();
@@ -1508,13 +1544,14 @@ mod tests {
                     &user_destination_key,
                     &self.pool_mint_key,
                     &self.pool_fee_key,
+                    gateway_token,
                     None,
                     Swap {
                         amount_in,
                         minimum_amount_out,
                     },
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut self.swap_account,
                     &mut Account::default(),
@@ -1525,6 +1562,7 @@ mod tests {
                     &mut user_destination_account,
                     &mut self.pool_mint_account,
                     &mut self.pool_fee_account,
+                    &mut self.gateway_mint_account,
                     &mut Account::default(),
                 ],
             )?;
@@ -1559,14 +1597,14 @@ mod tests {
                     &[],
                     maximum_token_a_amount,
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut depositor_token_a_account,
                     &mut Account::default(),
                     &mut Account::default(),
                 ],
             )
-            .unwrap();
+                .unwrap();
 
             do_process_instruction(
                 approve(
@@ -1577,14 +1615,14 @@ mod tests {
                     &[],
                     maximum_token_b_amount,
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut depositor_token_b_account,
                     &mut Account::default(),
                     &mut Account::default(),
                 ],
             )
-            .unwrap();
+                .unwrap();
 
             do_process_instruction(
                 deposit_all_token_types(
@@ -1605,7 +1643,7 @@ mod tests {
                         maximum_token_b_amount,
                     },
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut self.swap_account,
                     &mut Account::default(),
@@ -1646,14 +1684,14 @@ mod tests {
                     &[],
                     pool_token_amount,
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut pool_account,
                     &mut Account::default(),
                     &mut Account::default(),
                 ],
             )
-            .unwrap();
+                .unwrap();
 
             // withdraw token a and b correctly
             do_process_instruction(
@@ -1676,7 +1714,7 @@ mod tests {
                         minimum_token_b_amount,
                     },
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut self.swap_account,
                     &mut Account::default(),
@@ -1714,14 +1752,14 @@ mod tests {
                     &[],
                     source_token_amount,
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut deposit_token_account,
                     &mut Account::default(),
                     &mut Account::default(),
                 ],
             )
-            .unwrap();
+                .unwrap();
 
             do_process_instruction(
                 deposit_single_token_type_exact_amount_in(
@@ -1740,7 +1778,7 @@ mod tests {
                         minimum_pool_token_amount,
                     },
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut self.swap_account,
                     &mut Account::default(),
@@ -1777,14 +1815,14 @@ mod tests {
                     &[],
                     maximum_pool_token_amount,
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut pool_account,
                     &mut Account::default(),
                     &mut Account::default(),
                 ],
             )
-            .unwrap();
+                .unwrap();
 
             do_process_instruction(
                 withdraw_single_token_type_exact_amount_out(
@@ -1804,7 +1842,7 @@ mod tests {
                         maximum_pool_token_amount,
                     },
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut self.swap_account,
                     &mut Account::default(),
@@ -1915,7 +1953,7 @@ mod tests {
                 &mut rent_sysvar_account,
             ],
         )
-        .unwrap();
+            .unwrap();
 
         if amount > 0 {
             do_process_instruction(
@@ -1927,14 +1965,14 @@ mod tests {
                     &[],
                     amount,
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut mint_account,
                     &mut account_account,
                     &mut mint_authority_account,
                 ],
             )
-            .unwrap();
+                .unwrap();
         }
 
         (account_key, account_account)
@@ -1957,8 +1995,9 @@ mod tests {
             initialize_mint(&program_id, &mint_key, authority_key, freeze_authority, 2).unwrap(),
             vec![&mut mint_account, &mut rent_sysvar_account],
         )
-        .unwrap();
+            .unwrap();
 
+        msg!("Mint authority {}:", authority_key);
         (mint_key, mint_account)
     }
 
@@ -1983,7 +2022,7 @@ mod tests {
             &[],
             10,
         )
-        .unwrap();
+            .unwrap();
         let mint = (&mut mint).into();
         let destination = (&mut destination).into();
         let authority = (&mut authority).into();
@@ -2024,7 +2063,9 @@ mod tests {
         };
 
         let mut accounts =
-            SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+            SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
+
+        let idv_key = Pubkey::new_unique();
 
         // wrong nonce for authority_key
         {
@@ -2325,14 +2366,14 @@ mod tests {
                     &[],
                     1,
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut accounts.token_a_account,
                     &mut Account::default(),
                     &mut Account::default(),
                 ],
             )
-            .unwrap();
+                .unwrap();
             assert_eq!(
                 Err(SwapError::InvalidDelegate.into()),
                 accounts.initialize_swap()
@@ -2345,10 +2386,10 @@ mod tests {
                     &accounts.authority_key,
                     &[],
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![&mut accounts.token_a_account, &mut Account::default()],
             )
-            .unwrap();
+                .unwrap();
         }
 
         // token B account is delegated
@@ -2362,14 +2403,14 @@ mod tests {
                     &[],
                     1,
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut accounts.token_b_account,
                     &mut Account::default(),
                     &mut Account::default(),
                 ],
             )
-            .unwrap();
+                .unwrap();
             assert_eq!(
                 Err(SwapError::InvalidDelegate.into()),
                 accounts.initialize_swap()
@@ -2382,10 +2423,10 @@ mod tests {
                     &accounts.authority_key,
                     &[],
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![&mut accounts.token_b_account, &mut Account::default()],
             )
-            .unwrap();
+                .unwrap();
         }
 
         // token A account has close authority
@@ -2399,10 +2440,10 @@ mod tests {
                     &accounts.authority_key,
                     &[],
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![&mut accounts.token_a_account, &mut Account::default()],
             )
-            .unwrap();
+                .unwrap();
             assert_eq!(
                 Err(SwapError::InvalidCloseAuthority.into()),
                 accounts.initialize_swap()
@@ -2417,10 +2458,10 @@ mod tests {
                     &user_key,
                     &[],
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![&mut accounts.token_a_account, &mut Account::default()],
             )
-            .unwrap();
+                .unwrap();
         }
 
         // token B account has close authority
@@ -2434,10 +2475,10 @@ mod tests {
                     &accounts.authority_key,
                     &[],
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![&mut accounts.token_b_account, &mut Account::default()],
             )
-            .unwrap();
+                .unwrap();
             assert_eq!(
                 Err(SwapError::InvalidCloseAuthority.into()),
                 accounts.initialize_swap()
@@ -2452,10 +2493,10 @@ mod tests {
                     &user_key,
                     &[],
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![&mut accounts.token_b_account, &mut Account::default()],
             )
-            .unwrap();
+                .unwrap();
         }
 
         // wrong token program id
@@ -2474,11 +2515,12 @@ mod tests {
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
                         &accounts.pool_token_key,
+                        &idv_key,
                         accounts.nonce,
                         accounts.fees.clone(),
                         accounts.swap_curve.clone(),
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -2487,6 +2529,7 @@ mod tests {
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
                         &mut accounts.pool_token_account,
+                        &mut accounts.gatekeeper_account,
                         &mut Account::default(),
                     ],
                 )
@@ -2533,7 +2576,7 @@ mod tests {
                 calculator: Box::new(ConstantPriceCurve { token_b_price }),
             };
             let mut accounts =
-                SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+                SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
             assert_eq!(
                 Err(SwapError::InvalidCurve.into()),
                 accounts.initialize_swap()
@@ -2558,7 +2601,7 @@ mod tests {
                 calculator: Box::new(ConstantPriceCurve { token_b_price }),
             };
             let mut accounts =
-                SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+                SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
             accounts.initialize_swap().unwrap();
         }
 
@@ -2580,7 +2623,7 @@ mod tests {
                 calculator: Box::new(OffsetCurve { token_b_offset }),
             };
             let mut accounts =
-                SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+                SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
             assert_eq!(
                 Err(SwapError::InvalidCurve.into()),
                 accounts.initialize_swap()
@@ -2605,7 +2648,7 @@ mod tests {
                 calculator: Box::new(OffsetCurve { token_b_offset }),
             };
             let mut accounts =
-                SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+                SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
             accounts.initialize_swap().unwrap();
         }
 
@@ -2642,6 +2685,7 @@ mod tests {
             });
             let mut accounts = SwapAccountInfo::new(
                 &user_key,
+                &user_key,
                 fees.clone(),
                 swap_curve,
                 token_a_amount,
@@ -2660,11 +2704,12 @@ mod tests {
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
                         &accounts.pool_token_key,
+                        &idv_key,
                         accounts.nonce,
                         accounts.fees.clone(),
                         accounts.swap_curve.clone(),
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -2673,6 +2718,7 @@ mod tests {
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
                         &mut accounts.pool_token_account,
+                        &mut accounts.gatekeeper_account,
                         &mut Account::default(),
                     ],
                     &constraints,
@@ -2714,6 +2760,7 @@ mod tests {
             bad_fees.trade_fee_numerator = trade_fee_numerator - 1;
             let mut accounts = SwapAccountInfo::new(
                 &user_key,
+                &user_key,
                 bad_fees,
                 swap_curve,
                 token_a_amount,
@@ -2732,11 +2779,12 @@ mod tests {
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
                         &accounts.pool_token_key,
+                        &idv_key,
                         accounts.nonce,
                         accounts.fees.clone(),
                         accounts.swap_curve.clone(),
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -2745,6 +2793,7 @@ mod tests {
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
                         &mut accounts.pool_token_account,
+                        &mut accounts.gatekeeper_account,
                         &mut Account::default(),
                     ],
                     &constraints,
@@ -2784,6 +2833,7 @@ mod tests {
             });
             let mut accounts = SwapAccountInfo::new(
                 &user_key,
+                &user_key,
                 fees.clone(),
                 swap_curve,
                 token_a_amount,
@@ -2800,11 +2850,12 @@ mod tests {
                     &accounts.pool_mint_key,
                     &accounts.pool_fee_key,
                     &accounts.pool_token_key,
+                    &idv_key,
                     accounts.nonce,
                     accounts.fees,
                     accounts.swap_curve.clone(),
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut accounts.swap_account,
                     &mut Account::default(),
@@ -2813,11 +2864,12 @@ mod tests {
                     &mut accounts.pool_mint_account,
                     &mut accounts.pool_fee_account,
                     &mut accounts.pool_token_account,
+                    &mut accounts.gatekeeper_account,
                     &mut Account::default(),
                 ],
                 &constraints,
             )
-            .unwrap();
+                .unwrap();
         }
 
         // create again
@@ -2883,7 +2935,7 @@ mod tests {
         };
 
         let mut accounts =
-            SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+            SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
 
         // depositing 10% of the current pool amount in token A and B means
         // that our pool tokens will be worth 1 / 10 of the current pool amount
@@ -3146,7 +3198,7 @@ mod tests {
                             maximum_token_b_amount: deposit_b,
                         },
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -3195,7 +3247,7 @@ mod tests {
                             maximum_token_b_amount: deposit_b,
                         },
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -3503,7 +3555,7 @@ mod tests {
         let minimum_token_b_amount = initial_b / 40;
 
         let mut accounts =
-            SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+            SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
 
         // swap not initialized
         {
@@ -3805,7 +3857,7 @@ mod tests {
                             minimum_token_b_amount,
                         }
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -3862,7 +3914,7 @@ mod tests {
                             minimum_token_b_amount,
                         },
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -4303,7 +4355,7 @@ mod tests {
         };
 
         let mut accounts =
-            SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+            SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
 
         let deposit_a = token_a_amount / 10;
         let deposit_b = token_b_amount / 10;
@@ -4491,7 +4543,7 @@ mod tests {
                             minimum_pool_token_amount: pool_amount,
                         },
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -4537,7 +4589,7 @@ mod tests {
                             minimum_pool_token_amount: pool_amount,
                         },
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -4823,7 +4875,7 @@ mod tests {
         let destination_b_amount = initial_b / 40;
 
         let mut accounts =
-            SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+            SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
 
         // swap not initialized
         {
@@ -5058,7 +5110,7 @@ mod tests {
                             maximum_pool_token_amount,
                         }
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -5112,7 +5164,7 @@ mod tests {
                             maximum_pool_token_amount,
                         }
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -5443,6 +5495,7 @@ mod tests {
     ) {
         let user_key = Pubkey::new_unique();
         let swapper_key = Pubkey::new_unique();
+        let user_transfer_key = Pubkey::new_unique();
 
         let swap_curve = SwapCurve {
             curve_type,
@@ -5451,6 +5504,7 @@ mod tests {
 
         let mut accounts = SwapAccountInfo::new(
             &user_key,
+            &user_transfer_key,
             fees.clone(),
             swap_curve.clone(),
             token_a_amount,
@@ -5476,15 +5530,18 @@ mod tests {
         let minimum_token_b_amount = 0;
         let pool_mint = spl_token::state::Mint::unpack(&accounts.pool_mint_account.data).unwrap();
         let initial_supply = pool_mint.supply;
+        let gateway_token = accounts.gateway_mint_key;
         accounts
             .swap(
                 &swapper_key,
+                &user_transfer_key,
                 &token_a_key,
                 &mut token_a_account,
                 &swap_token_a_key,
                 &swap_token_b_key,
                 &token_b_key,
                 &mut token_b_account,
+                &gateway_token,
                 a_to_b_amount,
                 minimum_token_b_amount,
             )
@@ -5549,15 +5606,18 @@ mod tests {
 
         let b_to_a_amount = initial_b / 10;
         let minimum_a_amount = 0;
+        let gateway_token = accounts.gateway_mint_key;
         accounts
             .swap(
                 &swapper_key,
+                &user_transfer_key,
                 &token_b_key,
                 &mut token_b_account,
                 &swap_token_b_key,
                 &swap_token_a_key,
                 &token_a_key,
                 &mut token_a_account,
+                &gateway_token,
                 b_to_a_amount,
                 minimum_a_amount,
             )
@@ -5757,6 +5817,7 @@ mod tests {
         });
         let mut accounts = SwapAccountInfo::new(
             &owner_key,
+            &owner_key,
             fees.clone(),
             swap_curve,
             token_a_amount,
@@ -5775,11 +5836,12 @@ mod tests {
                 &accounts.pool_mint_key,
                 &accounts.pool_fee_key,
                 &accounts.pool_token_key,
+                &accounts.gatekeeper_key,
                 accounts.nonce,
                 accounts.fees.clone(),
                 accounts.swap_curve.clone(),
             )
-            .unwrap(),
+                .unwrap(),
             vec![
                 &mut accounts.swap_account,
                 &mut Account::default(),
@@ -5788,13 +5850,12 @@ mod tests {
                 &mut accounts.pool_mint_account,
                 &mut accounts.pool_fee_account,
                 &mut accounts.pool_token_account,
+                &mut accounts.gatekeeper_account,
                 &mut Account::default(),
             ],
             &constraints,
         )
-        .unwrap();
-
-        let authority_key = accounts.authority_key;
+            .unwrap();
 
         let (
             token_a_key,
@@ -5805,7 +5866,7 @@ mod tests {
             mut pool_account,
         ) = accounts.setup_token_accounts(
             &owner_key,
-            &authority_key,
+            &owner_key,
             token_a_amount,
             token_b_amount,
             0,
@@ -5821,20 +5882,21 @@ mod tests {
                 &TOKEN_PROGRAM_ID,
                 &accounts.swap_key,
                 &accounts.authority_key,
-                &accounts.authority_key,
+                &owner_key,
                 &token_a_key,
                 &accounts.token_a_key,
                 &accounts.token_b_key,
                 &token_b_key,
                 &accounts.pool_mint_key,
                 &accounts.pool_fee_key,
+                &accounts.gateway_mint_key,
                 Some(&pool_key),
                 Swap {
                     amount_in,
                     minimum_amount_out,
                 },
             )
-            .unwrap(),
+                .unwrap(),
             vec![
                 &mut accounts.swap_account,
                 &mut Account::default(),
@@ -5845,12 +5907,13 @@ mod tests {
                 &mut token_b_account,
                 &mut accounts.pool_mint_account,
                 &mut accounts.pool_fee_account,
+                &mut accounts.gateway_mint_account,
                 &mut Account::default(),
                 &mut pool_account,
             ],
             &constraints,
         )
-        .unwrap();
+            .unwrap();
 
         // check that fees were taken in the host fee account
         let host_fee_account = spl_token::state::Account::unpack(&pool_account.data).unwrap();
@@ -5867,6 +5930,7 @@ mod tests {
     #[test]
     fn test_invalid_swap() {
         let user_key = Pubkey::new_unique();
+        let user_transfer_key = Pubkey::new_unique();
         let swapper_key = Pubkey::new_unique();
         let trade_fee_numerator = 1;
         let trade_fee_denominator = 4;
@@ -5894,8 +5958,9 @@ mod tests {
             curve_type,
             calculator: Box::new(ConstantProductCurve {}),
         };
+        msg!("user Key: {}", &user_key);
         let mut accounts =
-            SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+            SwapAccountInfo::new(&user_key, &user_transfer_key, fees, swap_curve, token_a_amount, token_b_amount);
 
         let initial_a = token_a_amount / 5;
         let initial_b = token_b_amount / 5;
@@ -5914,16 +5979,19 @@ mod tests {
                 _pool_key,
                 _pool_account,
             ) = accounts.setup_token_accounts(&user_key, &swapper_key, initial_a, initial_b, 0);
+            let gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(ProgramError::UninitializedAccount),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_a_key,
                     &mut token_a_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &token_b_key,
                     &mut token_b_account,
+                    &gateway_token,
                     initial_a,
                     minimum_token_b_amount,
                 )
@@ -5946,16 +6014,19 @@ mod tests {
             let mut wrong_swap_account = old_swap_account.clone();
             wrong_swap_account.owner = TOKEN_PROGRAM_ID;
             accounts.swap_account = wrong_swap_account;
+            let gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(ProgramError::IncorrectProgramId),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_a_key,
                     &mut token_a_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &token_b_key,
                     &mut token_b_account,
+                    &gateway_token,
                     initial_a,
                     minimum_token_b_amount,
                 )
@@ -5979,16 +6050,19 @@ mod tests {
                 &TOKEN_PROGRAM_ID,
             );
             accounts.authority_key = bad_authority_key;
+            let gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(SwapError::InvalidProgramAddress.into()),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_a_key,
                     &mut token_a_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &token_b_key,
                     &mut token_b_account,
+                    &gateway_token,
                     initial_a,
                     minimum_token_b_amount,
                 )
@@ -6022,13 +6096,14 @@ mod tests {
                         &token_b_key,
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
+                        &accounts.gateway_mint_key,
                         None,
                         Swap {
                             amount_in: initial_a,
                             minimum_amount_out: minimum_token_b_amount,
                         },
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -6039,6 +6114,7 @@ mod tests {
                         &mut token_b_account,
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
+                        &mut accounts.gateway_mint_account,
                         &mut Account::default(),
                     ],
                 ),
@@ -6055,16 +6131,19 @@ mod tests {
                 _pool_key,
                 _pool_account,
             ) = accounts.setup_token_accounts(&user_key, &swapper_key, initial_a, initial_b, 0);
+            let gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(TokenError::InsufficientFunds.into()),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_a_key,
                     &mut token_a_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &token_b_key,
                     &mut token_b_account,
+                    &gateway_token,
                     initial_a * 2,
                     minimum_token_b_amount * 2,
                 )
@@ -6097,13 +6176,14 @@ mod tests {
                         &token_b_key,
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
+                        &accounts.gateway_mint_key,
                         None,
                         Swap {
                             amount_in: initial_a,
                             minimum_amount_out: minimum_token_b_amount,
                         },
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -6114,6 +6194,7 @@ mod tests {
                         &mut token_b_account,
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
+                        &mut accounts.gateway_mint_account,
                         &mut Account::default(),
                     ],
                 ),
@@ -6130,16 +6211,19 @@ mod tests {
                 _pool_key,
                 _pool_account,
             ) = accounts.setup_token_accounts(&user_key, &swapper_key, initial_a, initial_b, 0);
+            let gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(TokenError::MintMismatch.into()),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_b_key,
                     &mut token_b_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &token_a_key,
                     &mut token_a_account,
+                    &gateway_token,
                     initial_a,
                     minimum_token_b_amount,
                 )
@@ -6156,16 +6240,19 @@ mod tests {
                 _pool_key,
                 _pool_account,
             ) = accounts.setup_token_accounts(&user_key, &swapper_key, initial_a, initial_b, 0);
+            let gatway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(SwapError::InvalidInput.into()),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_a_key,
                     &mut token_a_account.clone(),
                     &swap_token_a_key,
                     &swap_token_a_key,
                     &token_a_key,
                     &mut token_a_account,
+                    &gatway_token,
                     initial_a,
                     minimum_token_b_amount,
                 )
@@ -6189,16 +6276,20 @@ mod tests {
             accounts.pool_mint_key = pool_mint_key;
             accounts.pool_mint_account = pool_mint_account;
 
+            let gateway_token = accounts.gateway_mint_key;
+
             assert_eq!(
                 Err(SwapError::IncorrectPoolMint.into()),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_a_key,
                     &mut token_a_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &token_b_key,
                     &mut token_b_account,
+                    &gateway_token,
                     initial_a,
                     minimum_token_b_amount,
                 )
@@ -6222,16 +6313,19 @@ mod tests {
             let old_pool_fee_key = accounts.pool_fee_key;
             accounts.pool_fee_account = wrong_pool_account;
             accounts.pool_fee_key = wrong_pool_key;
+            let mut gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(SwapError::IncorrectFeeAccount.into()),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_a_key,
                     &mut token_a_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &token_b_key,
                     &mut token_b_account,
+                    &mut gateway_token,
                     initial_a,
                     minimum_token_b_amount,
                 )
@@ -6251,6 +6345,8 @@ mod tests {
                 _pool_account,
             ) = accounts.setup_token_accounts(&user_key, &swapper_key, initial_a, initial_b, 0);
             let user_transfer_key = Pubkey::new_unique();
+            // create a gateway token for the new transfer key
+            let (valid_gateway_token, mut valid_gateway_account) = SwapAccountInfo::create_gateway_token(&user_transfer_key, &accounts.gatekeeper_key);
             assert_eq!(
                 Err(TokenError::OwnerMismatch.into()),
                 do_process_instruction(
@@ -6266,13 +6362,14 @@ mod tests {
                         &token_b_key,
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
+                        &valid_gateway_token,
                         None,
                         Swap {
                             amount_in: initial_a,
                             minimum_amount_out: minimum_token_b_amount,
                         },
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -6283,6 +6380,7 @@ mod tests {
                         &mut token_b_account,
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
+                        &mut valid_gateway_account,
                         &mut Account::default(),
                     ],
                 ),
@@ -6299,16 +6397,19 @@ mod tests {
                 _pool_key,
                 _pool_account,
             ) = accounts.setup_token_accounts(&user_key, &swapper_key, initial_a, initial_b, 0);
+            let gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(SwapError::ZeroTradingTokens.into()),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_b_key,
                     &mut token_b_account,
                     &swap_token_b_key,
                     &swap_token_a_key,
                     &token_a_key,
                     &mut token_a_account,
+                    &gateway_token,
                     1,
                     1,
                 )
@@ -6325,16 +6426,19 @@ mod tests {
                 _pool_key,
                 _pool_account,
             ) = accounts.setup_token_accounts(&user_key, &swapper_key, initial_a, initial_b, 0);
+            let gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(SwapError::ExceededSlippage.into()),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_a_key,
                     &mut token_a_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &token_b_key,
                     &mut token_b_account,
+                    &gateway_token,
                     initial_a,
                     minimum_token_b_amount * 2,
                 )
@@ -6353,31 +6457,37 @@ mod tests {
             ) = accounts.setup_token_accounts(&user_key, &swapper_key, initial_a, initial_b, 0);
             let mut swap_token_a_account = accounts.get_token_account(&swap_token_a_key).clone();
             let authority_key = accounts.authority_key;
+            let gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(SwapError::InvalidInput.into()),
                 accounts.swap(
                     &authority_key,
+                    &user_transfer_key,
                     &swap_token_a_key,
                     &mut swap_token_a_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &token_b_key,
                     &mut token_b_account,
+                    &gateway_token,
                     initial_a,
                     minimum_token_b_amount,
                 )
             );
             let mut swap_token_b_account = accounts.get_token_account(&swap_token_b_key).clone();
+            let gateway_token = accounts.gateway_mint_key;
             assert_eq!(
                 Err(SwapError::InvalidInput.into()),
                 accounts.swap(
                     &swapper_key,
+                    &user_transfer_key,
                     &token_a_key,
                     &mut token_a_account,
                     &swap_token_a_key,
                     &swap_token_b_key,
                     &swap_token_b_key,
                     &mut swap_token_b_account,
+                    &gateway_token,
                     initial_a,
                     minimum_token_b_amount,
                 )
@@ -6386,7 +6496,6 @@ mod tests {
 
         // still correct: constraint specified, no host fee account
         {
-            let authority_key = accounts.authority_key;
             let (
                 token_a_key,
                 mut token_a_account,
@@ -6394,7 +6503,7 @@ mod tests {
                 mut token_b_account,
                 _pool_key,
                 _pool_account,
-            ) = accounts.setup_token_accounts(&user_key, &authority_key, initial_a, initial_b, 0);
+            ) = accounts.setup_token_accounts(&user_key, &user_key, initial_a, initial_b, 0);
             let owner_key = &swapper_key.to_string();
             let fees = Fees {
                 trade_fee_numerator,
@@ -6411,26 +6520,31 @@ mod tests {
                 valid_curve_types: &[],
                 fees: &fees,
             });
+
+            // create a gateway token for the user key
+            let (valid_gateway_token, mut valid_gateway_account) = SwapAccountInfo::create_gateway_token(&user_key, &accounts.gatekeeper_key);
+            
             do_process_instruction_with_fee_constraints(
                 swap(
                     &SWAP_PROGRAM_ID,
                     &TOKEN_PROGRAM_ID,
                     &accounts.swap_key,
                     &accounts.authority_key,
-                    &accounts.authority_key,
+                    &user_key,
                     &token_a_key,
                     &accounts.token_a_key,
                     &accounts.token_b_key,
                     &token_b_key,
                     &accounts.pool_mint_key,
                     &accounts.pool_fee_key,
+                    &valid_gateway_token,
                     None,
                     Swap {
                         amount_in: initial_a,
                         minimum_amount_out: minimum_token_b_amount,
                     },
                 )
-                .unwrap(),
+                    .unwrap(),
                 vec![
                     &mut accounts.swap_account,
                     &mut Account::default(),
@@ -6441,16 +6555,16 @@ mod tests {
                     &mut token_b_account,
                     &mut accounts.pool_mint_account,
                     &mut accounts.pool_fee_account,
+                    &mut valid_gateway_account,
                     &mut Account::default(),
                 ],
                 &constraints,
             )
-            .unwrap();
+                .unwrap();
         }
 
         // invalid mint for host fee account
         {
-            let authority_key = accounts.authority_key;
             let (
                 token_a_key,
                 mut token_a_account,
@@ -6458,7 +6572,7 @@ mod tests {
                 mut token_b_account,
                 _pool_key,
                 _pool_account,
-            ) = accounts.setup_token_accounts(&user_key, &authority_key, initial_a, initial_b, 0);
+            ) = accounts.setup_token_accounts(&user_key, &user_key, initial_a, initial_b, 0);
             let (
                 bad_token_a_key,
                 mut bad_token_a_account,
@@ -6466,7 +6580,7 @@ mod tests {
                 mut _token_b_account,
                 _pool_key,
                 _pool_account,
-            ) = accounts.setup_token_accounts(&user_key, &authority_key, initial_a, initial_b, 0);
+            ) = accounts.setup_token_accounts(&user_key, &user_key, initial_a, initial_b, 0);
             let owner_key = &swapper_key.to_string();
             let fees = Fees {
                 trade_fee_numerator,
@@ -6483,6 +6597,10 @@ mod tests {
                 valid_curve_types: &[],
                 fees: &fees,
             });
+
+            // create a gateway token for the user key
+            let (valid_gateway_token, mut valid_gateway_account) = SwapAccountInfo::create_gateway_token(&user_key, &accounts.gatekeeper_key);
+
             assert_eq!(
                 Err(SwapError::IncorrectPoolMint.into()),
                 do_process_instruction_with_fee_constraints(
@@ -6491,20 +6609,21 @@ mod tests {
                         &TOKEN_PROGRAM_ID,
                         &accounts.swap_key,
                         &accounts.authority_key,
-                        &accounts.authority_key,
+                        &user_key,
                         &token_a_key,
                         &accounts.token_a_key,
                         &accounts.token_b_key,
                         &token_b_key,
                         &accounts.pool_mint_key,
                         &accounts.pool_fee_key,
+                        &valid_gateway_token,
                         Some(&bad_token_a_key),
                         Swap {
                             amount_in: initial_a,
                             minimum_amount_out: 0,
                         },
                     )
-                    .unwrap(),
+                        .unwrap(),
                     vec![
                         &mut accounts.swap_account,
                         &mut Account::default(),
@@ -6515,6 +6634,7 @@ mod tests {
                         &mut token_b_account,
                         &mut accounts.pool_mint_account,
                         &mut accounts.pool_fee_account,
+                        &mut valid_gateway_account,
                         &mut Account::default(),
                         &mut bad_token_a_account,
                     ],
@@ -6522,6 +6642,245 @@ mod tests {
                 ),
             );
         }
+    }
+
+    #[test]
+    fn test_invalid_swap_bad_gateway_token_owner() {
+        let swap_parameters = get_swap_parameters();
+        let (owner_key, _,_, token_a_amount, token_b_amount, fees, swap_curve) = swap_parameters;
+
+        let valid_curve_types = &[swap_curve.curve_type];
+        let owner_key_str = &owner_key.to_string();
+        let constraints = Some(SwapConstraints {
+            owner_key: owner_key_str,
+            valid_curve_types,
+            fees: &fees,
+        });
+
+        let mut accounts = SwapAccountInfo::new(
+            &owner_key,
+            &owner_key,
+            fees.clone(),
+            swap_curve,
+            token_a_amount,
+            token_b_amount,
+        );
+
+        initialise_swap(&constraints, &mut accounts);
+        
+        // create a bad gateway token - incorrect owner
+        let (invalid_gateway_key, mut invalid_gateway_account) = SwapAccountInfo::create_gateway_token(
+            &Pubkey::new_unique(), // wrong owner
+            &accounts.gatekeeper_key);
+
+        let (
+            token_a_key,
+            mut token_a_account,
+            token_b_key,
+            mut token_b_account,
+            pool_key,
+            mut pool_account,
+        ) = accounts.setup_token_accounts(
+            &owner_key,
+            &owner_key,
+            token_a_amount,
+            token_b_amount,
+            0,
+        );
+
+        assert_eq!(
+                Err(SwapError::UnauthorizedIdentity.into()),
+        do_process_instruction_with_fee_constraints(
+            swap(
+                &SWAP_PROGRAM_ID,
+                &TOKEN_PROGRAM_ID,
+                &accounts.swap_key,
+                &accounts.authority_key,
+                &owner_key,
+                &token_a_key,
+                &accounts.token_a_key,
+                &accounts.token_b_key,
+                &token_b_key,
+                &accounts.pool_mint_key,
+                &accounts.pool_fee_key,
+                &invalid_gateway_key,
+                Some(&pool_key),
+                Swap {
+                    amount_in: token_a_amount / 2,
+                    minimum_amount_out: 0,
+                },
+            )
+                .unwrap(),
+            vec![
+                &mut accounts.swap_account,
+                &mut Account::default(),
+                &mut Account::default(),
+                &mut token_a_account,
+                &mut accounts.token_a_account,
+                &mut accounts.token_b_account,
+                &mut token_b_account,
+                &mut accounts.pool_mint_account,
+                &mut accounts.pool_fee_account,
+                &mut invalid_gateway_account,
+                &mut Account::default(),
+                &mut pool_account,
+            ],
+            &constraints,
+        ));
+    }
+
+    #[test]
+    fn test_invalid_swap_bad_gateway_token_gatekeeper() {
+        let swap_parameters = get_swap_parameters();
+        let (owner_key, _, _, token_a_amount, token_b_amount, fees, swap_curve) = swap_parameters;
+
+        let valid_curve_types = &[swap_curve.curve_type];
+        let owner_key_str = &owner_key.to_string();
+        let constraints = Some(SwapConstraints {
+            owner_key: owner_key_str,
+            valid_curve_types,
+            fees: &fees,
+        });
+
+        let mut accounts = SwapAccountInfo::new(
+            &owner_key,
+            &owner_key,
+            fees.clone(),
+            swap_curve,
+            token_a_amount,
+            token_b_amount,
+        );
+
+        initialise_swap(&constraints, &mut accounts);
+
+        // create a bad gateway token - incorrect gatekeeper
+        let (invalid_gateway_key, mut invalid_gateway_account) = SwapAccountInfo::create_gateway_token(
+            &owner_key,
+            &Pubkey::new_unique()); // wrong gatekeeper
+
+        let (
+            token_a_key,
+            mut token_a_account,
+            token_b_key,
+            mut token_b_account,
+            pool_key,
+            mut pool_account,
+        ) = accounts.setup_token_accounts(
+            &owner_key,
+            &owner_key,
+            token_a_amount,
+            token_b_amount,
+            0,
+        );
+
+        assert_eq!(
+            Err(SwapError::UnauthorizedIdentity.into()),
+            do_process_instruction_with_fee_constraints(
+                swap(
+                    &SWAP_PROGRAM_ID,
+                    &TOKEN_PROGRAM_ID,
+                    &accounts.swap_key,
+                    &accounts.authority_key,
+                    &owner_key,
+                    &token_a_key,
+                    &accounts.token_a_key,
+                    &accounts.token_b_key,
+                    &token_b_key,
+                    &accounts.pool_mint_key,
+                    &accounts.pool_fee_key,
+                    &invalid_gateway_key,
+                    Some(&pool_key),
+                    Swap {
+                        amount_in: token_a_amount / 2,
+                        minimum_amount_out: 0,
+                    },
+                )
+                    .unwrap(),
+                vec![
+                    &mut accounts.swap_account,
+                    &mut Account::default(),
+                    &mut Account::default(),
+                    &mut token_a_account,
+                    &mut accounts.token_a_account,
+                    &mut accounts.token_b_account,
+                    &mut token_b_account,
+                    &mut accounts.pool_mint_account,
+                    &mut accounts.pool_fee_account,
+                    &mut invalid_gateway_account,
+                    &mut Account::default(),
+                    &mut pool_account,
+                ],
+                &constraints,
+            ));
+    }
+
+    fn initialise_swap(constraints: &Option<SwapConstraints>, accounts: &mut SwapAccountInfo) {
+        do_process_instruction_with_fee_constraints(
+            initialize(
+                &SWAP_PROGRAM_ID,
+                &TOKEN_PROGRAM_ID,
+                &accounts.swap_key,
+                &accounts.authority_key,
+                &accounts.token_a_key,
+                &accounts.token_b_key,
+                &accounts.pool_mint_key,
+                &accounts.pool_fee_key,
+                &accounts.pool_token_key,
+                &accounts.gatekeeper_key,
+                accounts.nonce,
+                accounts.fees.clone(),
+                accounts.swap_curve.clone(),
+            )
+                .unwrap(),
+            vec![
+                &mut accounts.swap_account,
+                &mut Account::default(),
+                &mut accounts.token_a_account,
+                &mut accounts.token_b_account,
+                &mut accounts.pool_mint_account,
+                &mut accounts.pool_fee_account,
+                &mut accounts.pool_token_account,
+                &mut accounts.gatekeeper_account,
+                &mut Account::default(),
+            ],
+            &constraints,
+        )
+            .unwrap();
+    }
+
+    fn get_swap_parameters() -> (Pubkey, u64, u64, u64, u64, Fees, SwapCurve) {
+        let owner_key = Pubkey::new_unique();
+
+        let trade_fee_numerator = 1;
+        let trade_fee_denominator = 10;
+        let owner_trade_fee_numerator = 1;
+        let owner_trade_fee_denominator = 30;
+        let owner_withdraw_fee_numerator = 1;
+        let owner_withdraw_fee_denominator = 30;
+        let host_fee_numerator = 10;
+        let host_fee_denominator = 100;
+
+        let token_a_amount = 1_000_000;
+        let token_b_amount = 5_000_000;
+
+        let fees = Fees {
+            trade_fee_numerator,
+            trade_fee_denominator,
+            owner_trade_fee_numerator,
+            owner_trade_fee_denominator,
+            owner_withdraw_fee_numerator,
+            owner_withdraw_fee_denominator,
+            host_fee_numerator,
+            host_fee_denominator,
+        };
+
+        let curve = ConstantProductCurve {};
+        let swap_curve = SwapCurve {
+            curve_type: CurveType::ConstantProduct,
+            calculator: Box::new(curve),
+        };
+
+        (owner_key, host_fee_numerator, host_fee_denominator, token_a_amount, token_b_amount, fees, swap_curve)
     }
 
     #[test]
@@ -6555,9 +6914,10 @@ mod tests {
         };
         let user_key = Pubkey::new_unique();
         let swapper_key = Pubkey::new_unique();
+        let user_transfer_key = Pubkey::new_unique();
 
         let mut accounts =
-            SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+            SwapAccountInfo::new(&user_key, &user_transfer_key, fees, swap_curve, token_a_amount, token_b_amount);
 
         accounts.initialize_swap().unwrap();
 
@@ -6579,16 +6939,19 @@ mod tests {
         let a_to_b_amount = initial_a;
         let minimum_token_b_amount = 0;
 
+        let gateway_token = accounts.gateway_mint_key;
         assert_eq!(
             Err(SwapError::ZeroTradingTokens.into()),
             accounts.swap(
                 &swapper_key,
+                &user_transfer_key,
                 &token_a_key,
                 &mut token_a_account,
                 &swap_token_a_key,
                 &swap_token_b_key,
                 &token_b_key,
                 &mut token_b_account,
+                &gateway_token,
                 a_to_b_amount,
                 minimum_token_b_amount,
             )
@@ -6597,46 +6960,55 @@ mod tests {
         // swap b to a, succeeds at offset price
         let b_to_a_amount = initial_b;
         let minimum_token_a_amount = 0;
+        let gateway_token = accounts.gateway_mint_key;
         accounts
             .swap(
                 &swapper_key,
+                &user_transfer_key,
                 &token_b_key,
                 &mut token_b_account,
                 &swap_token_b_key,
                 &swap_token_a_key,
                 &token_a_key,
                 &mut token_a_account,
+                &gateway_token,
                 b_to_a_amount,
                 minimum_token_a_amount,
             )
             .unwrap();
 
         // try a to b again, succeeds due to new liquidity
+        let gateway_token = accounts.gateway_mint_key;
         accounts
             .swap(
                 &swapper_key,
+                &user_transfer_key,
                 &token_a_key,
                 &mut token_a_account,
                 &swap_token_a_key,
                 &swap_token_b_key,
                 &token_b_key,
                 &mut token_b_account,
+                &gateway_token,
                 a_to_b_amount,
                 minimum_token_b_amount,
             )
             .unwrap();
 
         // try a to b again, fails due to no more liquidity
+        let gateway_token = accounts.gateway_mint_key;
         assert_eq!(
             Err(SwapError::ZeroTradingTokens.into()),
             accounts.swap(
                 &swapper_key,
+                &user_transfer_key,
                 &token_a_key,
                 &mut token_a_account,
                 &swap_token_a_key,
                 &swap_token_b_key,
                 &token_b_key,
                 &mut token_b_account,
+                &gateway_token,
                 a_to_b_amount,
                 minimum_token_b_amount,
             )
@@ -6708,7 +7080,7 @@ mod tests {
         let withdrawer_key = Pubkey::new_unique();
 
         let mut accounts =
-            SwapAccountInfo::new(&user_key, fees, swap_curve, token_a_amount, token_b_amount);
+            SwapAccountInfo::new(&user_key, &user_key, fees, swap_curve, token_a_amount, token_b_amount);
 
         accounts.initialize_swap().unwrap();
 

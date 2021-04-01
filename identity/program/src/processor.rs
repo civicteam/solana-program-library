@@ -12,12 +12,13 @@ use solana_program::{
     account_info::{next_account_info, AccountInfo},
     decode_error::DecodeError,
     entrypoint::ProgramResult,
-    info,
+    msg,
     program_error::{PrintProgramError, ProgramError},
     program_pack::{IsInitialized, Pack},
     pubkey::Pubkey,
     sysvar::{rent::Rent, Sysvar},
 };
+use solana_program::program_option::COption;
 
 /// Program state handler.
 pub struct Processor {}
@@ -30,13 +31,13 @@ impl Processor {
         let owner_info = next_account_info(account_info_iter)?;
         let rent = &Rent::from_account_info(next_account_info(account_info_iter)?)?;
 
-        info!("Instruction: InitializeIdentity, extracted inputs");
+        msg!("Instruction: InitializeIdentity, extracted inputs");
 
         let new_account_info_data_len = new_subject_info.data_len();
-        info!(new_subject_info.data_len(), 0, 0, 0, 0);
+        msg!(new_subject_info.data_len(), 0, 0, 0, 0);
         let mut subject = IdentityAccount::deserialize2(&new_subject_info.data.borrow())?;
 
-        info!("Instruction: InitializeIdentity, deserialized subject");
+        msg!("Instruction: InitializeIdentity, deserialized subject");
 
         if subject.is_initialized() {
             return Err(IdentityError::AlreadyInUse.into());
@@ -46,7 +47,7 @@ impl Processor {
             return Err(IdentityError::NotRentExempt.into());
         }
 
-        info!("Instruction: InitializeIdentity, checks complete");
+        msg!("Instruction: InitializeIdentity, checks complete");
 
         subject.owner = SerializablePubkey::from(*owner_info.key);
         subject.state = AccountState::Initialized;
@@ -63,7 +64,7 @@ impl Processor {
 
         let mut subject = IdentityAccount::deserialize2(&subject_info.data.borrow())?;
 
-        info!("Instruction: Attest, extracted inputs");
+        msg!("Instruction: Attest, extracted inputs");
 
         let serializable_idv_pubkey = SerializablePubkey::from(*idv_info.key);
         let new_attestation = Attestation { idv: serializable_idv_pubkey, attestation_data: *attestation_data };
@@ -80,46 +81,72 @@ impl Processor {
 
     /// Processes an [Instruction](enum.Instruction.html).
     pub fn process(_program_id: &Pubkey, accounts: &[AccountInfo], input: &[u8]) -> ProgramResult {
-        info!("process");
+        msg!("process");
         let instruction = IdentityInstruction::deserialize(input)?;
 
         match instruction {
             IdentityInstruction::InitializeIdentity => {
-                info!("Instruction: InitializeIdentity");
+                msg!("Instruction: InitializeIdentity");
                 Self::process_initialize_identity(accounts)
             }
             IdentityInstruction::Attest { attestation_data } => {
-                info!("Instruction: Attest");
+                msg!("Instruction: Attest");
                 Self::process_attest(accounts, &attestation_data)
             }
         }
     }
 
     /// Verifies than Identity belongs to the correct owner
-    /// and is signed by the expected IdV
+    /// and is signed by the expected IdV TODO remove
     pub fn verify(
         identity: &IdentityAccount,
         expected_owner: &Pubkey,
         expected_idv: &Pubkey,
     ) -> Result<(), IdentityError> {
         if *expected_owner != identity.owner.to_pubkey() {
-            info!("Identity account does not have the correct owner");
+            msg!("Identity account does not have the correct owner");
             return Err(IdentityError::OwnerMismatch.into());
         }
         if identity.num_attestations < 1 {
-            info!("No attestations for identity");
+            msg!("No attestations for identity");
             return Err(IdentityError::UnauthorizedIdentity.into());
         }
 
         if *expected_idv != identity.attestation.idv.to_pubkey() {
-            info!("Identity not attested by correct IDV");
+            msg!("Identity not attested by correct IDV");
             return Err(IdentityError::UnauthorizedIdentity.into());
         }
 
         Ok(())
     }
 
+    /// Verifies the gqteway token belongs to the expected owner,
+    /// is signed by the gatekeeper and is not revoked.
+    pub fn verify_gateway_token(
+        gateway_token: &spl_token::state::Mint,
+        expected_owner: &Pubkey,
+        expected_gatekeeper: &Pubkey,
+    ) -> Result<(), IdentityError> {
+        if COption::Some(*expected_owner) != gateway_token.mint_authority {
+            msg!("Gateway token does not have the correct owner");
+            msg!("Expected: {} Was: {}", *expected_owner, gateway_token.mint_authority.unwrap());
+            return Err(IdentityError::OwnerMismatch.into());
+        }
 
+        if COption::Some(*expected_gatekeeper) != gateway_token.freeze_authority {
+            msg!("Identity not attested by correct IDV");
+            return Err(IdentityError::UnauthorizedIdentity.into());
+        }
+        
+        if !gateway_token.is_initialized {
+            msg!("Gateway token has been revoked");
+            return Err(IdentityError::UnauthorizedIdentity.into());
+        }
+
+        Ok(())
+    }
+    
+    
     /// Validates owner(s) are present
     pub fn validate_owner(
         program_id: &Pubkey,
@@ -165,13 +192,13 @@ impl PrintProgramError for IdentityError {
     {
         match self {
             IdentityError::NotRentExempt => {
-                info!("Error: Lamport balance below rent-exempt threshold")
+                msg!("Error: Lamport balance below rent-exempt threshold")
             }
-            IdentityError::InsufficientFunds => info!("Error: insufficient funds"),
-            IdentityError::OwnerMismatch => info!("Error: owner does not match"),
-            IdentityError::AlreadyInUse => info!("Error: account already in use"),
-            IdentityError::InvalidInstruction => info!("Error: Invalid instruction"),
-            IdentityError::UnauthorizedIdentity => info!("Error: Unauthorized identity"),
+            IdentityError::InsufficientFunds => msg!("Error: insufficient funds"),
+            IdentityError::OwnerMismatch => msg!("Error: owner does not match"),
+            IdentityError::AlreadyInUse => msg!("Error: account already in use"),
+            IdentityError::InvalidInstruction => msg!("Error: Invalid instruction"),
+            IdentityError::UnauthorizedIdentity => msg!("Error: Unauthorized identity"),
         }
     }
 }
