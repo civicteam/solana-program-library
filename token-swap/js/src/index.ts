@@ -64,6 +64,7 @@ export const TokenSwapLayout = BufferLayout.struct([
   Layout.publicKey('tokenPool'),
   Layout.publicKey('mintA'),
   Layout.publicKey('mintB'),
+  Layout.publicKey('gatekeeperNetwork'),
   Layout.publicKey('feeAccount'),
   Layout.uint64('tradeFeeNumerator'),
   Layout.uint64('tradeFeeDenominator'),
@@ -100,6 +101,7 @@ export class TokenSwap {
    * @param tokenAccountB The token swap's Token B account
    * @param mintA The mint of Token A
    * @param mintB The mint of Token B
+   * @param gatekeeperNetwork The network of gatekeepers that whitelist trading wallets
    * @param tradeFeeNumerator The trade fee numerator
    * @param tradeFeeDenominator The trade fee denominator
    * @param ownerTradeFeeNumerator The owner trade fee numerator
@@ -123,6 +125,7 @@ export class TokenSwap {
     public tokenAccountB: PublicKey,
     public mintA: PublicKey,
     public mintB: PublicKey,
+    public gatekeeperNetwork: PublicKey,
     public tradeFeeNumerator: Numberu64,
     public tradeFeeDenominator: Numberu64,
     public ownerTradeFeeNumerator: Numberu64,
@@ -145,6 +148,7 @@ export class TokenSwap {
     this.tokenAccountB = tokenAccountB;
     this.mintA = mintA;
     this.mintB = mintB;
+    this.gatekeeperNetwork = gatekeeperNetwork;
     this.tradeFeeNumerator = tradeFeeNumerator;
     this.tradeFeeDenominator = tradeFeeDenominator;
     this.ownerTradeFeeNumerator = ownerTradeFeeNumerator;
@@ -178,6 +182,7 @@ export class TokenSwap {
     tokenPool: PublicKey,
     feeAccount: PublicKey,
     tokenAccountPool: PublicKey,
+    gatekeeperNetwork: PublicKey,
     tokenProgramId: PublicKey,
     swapProgramId: PublicKey,
     nonce: number,
@@ -199,6 +204,7 @@ export class TokenSwap {
       {pubkey: tokenPool, isSigner: false, isWritable: true},
       {pubkey: feeAccount, isSigner: false, isWritable: false},
       {pubkey: tokenAccountPool, isSigner: false, isWritable: true},
+      {pubkey: gatekeeperNetwork, isSigner: false, isWritable: false},
       {pubkey: tokenProgramId, isSigner: false, isWritable: false},
     ];
     const commandDataLayout = BufferLayout.struct([
@@ -266,6 +272,7 @@ export class TokenSwap {
     const mintA = new PublicKey(tokenSwapData.mintA);
     const mintB = new PublicKey(tokenSwapData.mintB);
     const tokenProgramId = new PublicKey(tokenSwapData.tokenProgramId);
+    const gatekeeperNetwork = new PublicKey(tokenSwapData.gatekeeperNetwork);
 
     const tradeFeeNumerator = Numberu64.fromBuffer(
       tokenSwapData.tradeFeeNumerator,
@@ -305,6 +312,7 @@ export class TokenSwap {
       tokenAccountB,
       mintA,
       mintB,
+      gatekeeperNetwork,
       tradeFeeNumerator,
       tradeFeeDenominator,
       ownerTradeFeeNumerator,
@@ -348,6 +356,7 @@ export class TokenSwap {
     mintB: PublicKey,
     feeAccount: PublicKey,
     tokenAccountPool: PublicKey,
+    gatekeeperNetwork: PublicKey,
     swapProgramId: PublicKey,
     tokenProgramId: PublicKey,
     nonce: number,
@@ -374,6 +383,7 @@ export class TokenSwap {
       tokenAccountB,
       mintA,
       mintB,
+      gatekeeperNetwork,
       new Numberu64(tradeFeeNumerator),
       new Numberu64(tradeFeeDenominator),
       new Numberu64(ownerTradeFeeNumerator),
@@ -409,6 +419,7 @@ export class TokenSwap {
       poolToken,
       feeAccount,
       tokenAccountPool,
+      gatekeeperNetwork,
       tokenProgramId,
       swapProgramId,
       nonce,
@@ -454,6 +465,7 @@ export class TokenSwap {
     userDestination: PublicKey,
     hostFeeAccount: PublicKey | null,
     userTransferAuthority: Account,
+    gatewayToken: PublicKey,
     amountIn: number | Numberu64,
     minimumAmountOut: number | Numberu64,
   ): Promise<TransactionSignature> {
@@ -472,6 +484,7 @@ export class TokenSwap {
           this.poolToken,
           this.feeAccount,
           hostFeeAccount,
+          gatewayToken,
           this.swapProgramId,
           this.tokenProgramId,
           amountIn,
@@ -494,6 +507,7 @@ export class TokenSwap {
     poolMint: PublicKey,
     feeAccount: PublicKey,
     hostFeeAccount: PublicKey | null,
+    gatewayToken: PublicKey,
     swapProgramId: PublicKey,
     tokenProgramId: PublicKey,
     amountIn: number | Numberu64,
@@ -525,6 +539,7 @@ export class TokenSwap {
       {pubkey: userDestination, isSigner: false, isWritable: true},
       {pubkey: poolMint, isSigner: false, isWritable: true},
       {pubkey: feeAccount, isSigner: false, isWritable: true},
+      {pubkey: gatewayToken, isSigner: false, isWritable: true},
       {pubkey: tokenProgramId, isSigner: false, isWritable: false},
     ];
     if (hostFeeAccount !== null) {
@@ -552,6 +567,7 @@ export class TokenSwap {
     userAccountB: PublicKey,
     poolAccount: PublicKey,
     userTransferAuthority: Account,
+    gatewayToken: PublicKey,
     poolTokenAmount: number | Numberu64,
     maximumTokenA: number | Numberu64,
     maximumTokenB: number | Numberu64,
@@ -570,6 +586,7 @@ export class TokenSwap {
           this.tokenAccountB,
           this.poolToken,
           poolAccount,
+          gatewayToken,
           this.swapProgramId,
           this.tokenProgramId,
           poolTokenAmount,
@@ -592,6 +609,7 @@ export class TokenSwap {
     intoB: PublicKey,
     poolToken: PublicKey,
     poolAccount: PublicKey,
+    gatewayToken: PublicKey,
     swapProgramId: PublicKey,
     tokenProgramId: PublicKey,
     poolTokenAmount: number | Numberu64,
@@ -626,6 +644,7 @@ export class TokenSwap {
       {pubkey: intoB, isSigner: false, isWritable: true},
       {pubkey: poolToken, isSigner: false, isWritable: true},
       {pubkey: poolAccount, isSigner: false, isWritable: true},
+      {pubkey: gatewayToken, isSigner: false, isWritable: false},
       {pubkey: tokenProgramId, isSigner: false, isWritable: false},
     ];
     return new TransactionInstruction({

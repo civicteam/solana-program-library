@@ -15,6 +15,7 @@ use crate::{
     state::{SwapState, SwapV1, SwapVersion},
 };
 use num_traits::FromPrimitive;
+use solana_gateway::Gateway;
 use solana_program::{
     account_info::{next_account_info, AccountInfo},
     decode_error::DecodeError,
@@ -42,25 +43,6 @@ impl Processor {
             spl_token::state::Account::unpack(&account_info.data.borrow())
                 .map_err(|_| SwapError::ExpectedAccount)
         }
-    }
-
-    /// Unpacks an identity `Account`. TODO remove
-    pub fn unpack_identity_account(data: &[u8]) -> Result<spl_identity::state::IdentityAccount, SwapError> {
-        spl_identity::state::IdentityAccount::deserialize2(data).map_err(|_| SwapError::ExpectedAccount)
-    }
-
-    /// Unpacks a gateway token
-    pub fn unpack_gateway_token(account_info: &AccountInfo, token_program_id: &Pubkey) -> Result<spl_token::state::Mint, SwapError> {
-        Self::unpack_mint(account_info, token_program_id).map_err(|_| SwapError::ExpectedAccount)
-    }
-
-    /// Verifies an identity `Account` is owned by the swap caller and signed by the IdV. TODO remove
-    pub fn verify_identity_account(account: &spl_identity::state::IdentityAccount, expected_owner: &Pubkey, idv: &Pubkey) -> Result<(), SwapError> {
-        spl_identity::processor::Processor::verify(account, expected_owner, idv).map_err(|_| SwapError::UnauthorizedIdentity)
-    }
-    /// Verifiess a gateway token is owned by the swap caller, signed by the Gatekeeper and not revoked
-    pub fn verify_gateway_token(token: &spl_token::state::Mint, expected_owner: &Pubkey, idv: &Pubkey) -> Result<(), SwapError> {
-        spl_identity::processor::Processor::verify_gateway_token(token, expected_owner, idv).map_err(|_| SwapError::UnauthorizedIdentity)
     }
 
     /// Unpacks a spl_token `Mint`.
@@ -238,7 +220,7 @@ impl Processor {
         let pool_mint_info = next_account_info(account_info_iter)?;
         let fee_account_info = next_account_info(account_info_iter)?;
         let destination_info = next_account_info(account_info_iter)?;
-        let idv_info = next_account_info(account_info_iter)?;
+        let gatekeeper_network_info = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
         let token_program_id = *token_program_info.key;
@@ -335,7 +317,7 @@ impl Processor {
             token_a_mint: token_a.mint,
             token_b_mint: token_b.mint,
             pool_fee_account: *fee_account_info.key,
-            idv: *idv_info.key,
+            gatekeeper_network: *gatekeeper_network_info.key,
             fees,
             swap_curve,
         });
@@ -360,7 +342,7 @@ impl Processor {
         let destination_info = next_account_info(account_info_iter)?;
         let pool_mint_info = next_account_info(account_info_iter)?;
         let pool_fee_account_info = next_account_info(account_info_iter)?;
-        let identity_account_info = next_account_info(account_info_iter)?;
+        let gateway_token_account_info = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
         if swap_info.owner != program_id {
@@ -408,16 +390,10 @@ impl Processor {
         let pool_mint = Self::unpack_mint(pool_mint_info, &token_swap.token_program_id())?;
 
         msg!("User transfer authority {}, authority {}", user_transfer_authority_info.key, authority_info.key);
-        
-        let gateway_token = Self::unpack_gateway_token(identity_account_info, &token_swap.token_program_id())?;
-        // verify that the user is allowed to use the pool
-        let identity_verification_result = Self::verify_gateway_token
-            (&gateway_token, &user_transfer_authority_info.key, &token_swap.idv());
-        // Stop if identity verification fails
-        if identity_verification_result.is_err() {
-            return identity_verification_result.map_err(|e| Into::<ProgramError>::into(e))
-        }
 
+        let gateway_verification_result = Gateway::verify_gateway_token_account_info(&gateway_token_account_info, &owner.inner().key, &token_swap.gatekeeper_network)?;
+        msg!("Gateway Token validated {:?}", gateway_verification_result);
+        
         let trade_direction = if *swap_source_info.key == *token_swap.token_a_account() {
             TradeDirection::AtoB
         } else {
@@ -1214,6 +1190,7 @@ mod tests {
     const SWAP_PROGRAM_ID: Pubkey = Pubkey::new_from_array([2u8; 32]);
 
     struct TestSyscallStubs {}
+
     impl program_stubs::SyscallStubs for TestSyscallStubs {
         fn sol_invoke_signed(
             &self,
@@ -1287,7 +1264,7 @@ mod tests {
         gatekeeper_key: Pubkey,
         gatekeeper_account: Account,
         gateway_mint_key: Pubkey,
-        gateway_mint_account: Account
+        gateway_mint_account: Account,
     }
 
     impl SwapAccountInfo {
@@ -3839,7 +3816,7 @@ mod tests {
                             pool_token_amount: withdraw_amount.try_into().unwrap(),
                             minimum_token_a_amount,
                             minimum_token_b_amount,
-                        }
+                        },
                     )
                         .unwrap(),
                     vec![
@@ -5092,7 +5069,7 @@ mod tests {
                         WithdrawSingleTokenTypeExactAmountOut {
                             destination_token_amount: destination_a_amount,
                             maximum_pool_token_amount,
-                        }
+                        },
                     )
                         .unwrap(),
                     vec![
@@ -5146,7 +5123,7 @@ mod tests {
                         WithdrawSingleTokenTypeExactAmountOut {
                             destination_token_amount: destination_a_amount,
                             maximum_pool_token_amount,
-                        }
+                        },
                     )
                         .unwrap(),
                     vec![
@@ -6502,7 +6479,7 @@ mod tests {
 
             // create a gateway token for the user key
             let (valid_gateway_token, mut valid_gateway_account) = SwapAccountInfo::create_gateway_token(&user_key, &accounts.gatekeeper_key);
-            
+
             do_process_instruction_with_fee_constraints(
                 swap(
                     &SWAP_PROGRAM_ID,
@@ -6626,7 +6603,7 @@ mod tests {
     #[test]
     fn test_invalid_swap_bad_gateway_token_owner() {
         let swap_parameters = get_swap_parameters();
-        let (owner_key, _,_, token_a_amount, token_b_amount, fees, swap_curve) = swap_parameters;
+        let (owner_key, _, _, token_a_amount, token_b_amount, fees, swap_curve) = swap_parameters;
 
         let valid_curve_types = &[swap_curve.curve_type];
         let owner_key_str = &owner_key.to_string();
@@ -6646,7 +6623,7 @@ mod tests {
         );
 
         initialise_swap(&constraints, &mut accounts);
-        
+
         // create a bad gateway token - incorrect owner
         let (invalid_gateway_key, mut invalid_gateway_account) = SwapAccountInfo::create_gateway_token(
             &Pubkey::new_unique(), // wrong owner
@@ -6668,44 +6645,44 @@ mod tests {
         );
 
         assert_eq!(
-                Err(SwapError::UnauthorizedIdentity.into()),
-        do_process_instruction_with_fee_constraints(
-            swap(
-                &SWAP_PROGRAM_ID,
-                &TOKEN_PROGRAM_ID,
-                &accounts.swap_key,
-                &accounts.authority_key,
-                &owner_key,
-                &token_a_key,
-                &accounts.token_a_key,
-                &accounts.token_b_key,
-                &token_b_key,
-                &accounts.pool_mint_key,
-                &accounts.pool_fee_key,
-                &invalid_gateway_key,
-                Some(&pool_key),
-                Swap {
-                    amount_in: token_a_amount / 2,
-                    minimum_amount_out: 0,
-                },
-            )
-                .unwrap(),
-            vec![
-                &mut accounts.swap_account,
-                &mut Account::default(),
-                &mut Account::default(),
-                &mut token_a_account,
-                &mut accounts.token_a_account,
-                &mut accounts.token_b_account,
-                &mut token_b_account,
-                &mut accounts.pool_mint_account,
-                &mut accounts.pool_fee_account,
-                &mut invalid_gateway_account,
-                &mut Account::default(),
-                &mut pool_account,
-            ],
-            &constraints,
-        ));
+            Err(SwapError::UnauthorizedIdentity.into()),
+            do_process_instruction_with_fee_constraints(
+                swap(
+                    &SWAP_PROGRAM_ID,
+                    &TOKEN_PROGRAM_ID,
+                    &accounts.swap_key,
+                    &accounts.authority_key,
+                    &owner_key,
+                    &token_a_key,
+                    &accounts.token_a_key,
+                    &accounts.token_b_key,
+                    &token_b_key,
+                    &accounts.pool_mint_key,
+                    &accounts.pool_fee_key,
+                    &invalid_gateway_key,
+                    Some(&pool_key),
+                    Swap {
+                        amount_in: token_a_amount / 2,
+                        minimum_amount_out: 0,
+                    },
+                )
+                    .unwrap(),
+                vec![
+                    &mut accounts.swap_account,
+                    &mut Account::default(),
+                    &mut Account::default(),
+                    &mut token_a_account,
+                    &mut accounts.token_a_account,
+                    &mut accounts.token_b_account,
+                    &mut token_b_account,
+                    &mut accounts.pool_mint_account,
+                    &mut accounts.pool_fee_account,
+                    &mut invalid_gateway_account,
+                    &mut Account::default(),
+                    &mut pool_account,
+                ],
+                &constraints,
+            ));
     }
 
     #[test]

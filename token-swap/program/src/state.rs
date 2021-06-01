@@ -122,10 +122,12 @@ pub struct SwapV1 {
     /// Pool token account to receive trading and / or withdrawal fees
     pub pool_fee_account: Pubkey,
 
+    /// Network of gatekeepers for this Swap - gateway tokens, permitting trading
+    /// must  be issued by a gatekeeper in this network
+    pub gatekeeper_network: Pubkey,
+
     /// All fee information
     pub fees: Fees,
-    /// Validator of identities allowed to use the swap program
-    pub idv: Pubkey,
 
     /// Swap curve parameters, to be unpacked and used by the SwapCurve, which
     /// calculates swaps, deposits, and withdrawals
@@ -312,7 +314,7 @@ mod tests {
             token_b_mint: TEST_TOKEN_B_MINT,
             pool_fee_account: TEST_POOL_FEE_ACCOUNT,
             fees: TEST_FEES,
-            idv: TEST_GATEKEEPER,
+            gatekeeper_network: TEST_GATEKEEPER,
             swap_curve: swap_curve.clone(),
         });
 
