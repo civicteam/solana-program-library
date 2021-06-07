@@ -12,6 +12,12 @@ import {sendAndConfirmTransaction} from '../src/util/send-and-confirm-transactio
 import {newAccountWithLamports} from '../src/util/new-account-with-lamports';
 import {url} from '../src/util/url';
 import {sleep} from '../src/util/sleep';
+import {
+  addGatekeeper,
+  getGatekeeperAccountKeyFromGatekeeperAuthority,
+  getGatewayToken,
+  getGatewayTokenKeyForOwner, issueVanilla
+} from '@identity.com/solana-gateway-ts'
 
 // The following globals are created by `createTokenSwap` and used by subsequent tests
 // Token swap
@@ -70,11 +76,64 @@ const DEFAULT_POOL_TOKEN_AMOUNT = 1000000000;
 // Pool token amount to withdraw / deposit
 const POOL_TOKEN_AMOUNT = 10000000;
 
+const gatekeeperNetwork = new Account();
+
 function assert(condition: boolean, message?: string) {
   if (!condition) {
     console.log(Error().stack + ':token-test.js');
     throw message || 'Assertion failed';
   }
+}
+
+async function createGatekeeper(payer: Account, gatekeeperNetwork: Account):Promise<Account> {
+  const gatekeeperAuthority = new Account();
+
+  const gatekeeperAccount =
+    await getGatekeeperAccountKeyFromGatekeeperAuthority(gatekeeperAuthority.publicKey);
+
+  console.log("Creating gatekeeper account");
+  const transaction = new Transaction().add(
+    addGatekeeper(
+      payer.publicKey,
+      gatekeeperAccount,
+      gatekeeperAuthority.publicKey,
+      gatekeeperNetwork.publicKey
+    )
+  );
+  
+  const txSignature = await connection.sendTransaction(transaction, [payer, gatekeeperNetwork]);
+  await connection.confirmTransaction(txSignature, 'confirmed');
+
+  return gatekeeperAuthority;
+}
+
+async function getOrCreateGatewayToken(payer: Account, owner: PublicKey): Promise<PublicKey> {
+  const gatewayTokenAddress = await getGatewayTokenKeyForOwner(owner);
+  
+  const gatewayToken = await getGatewayToken(connection, gatewayTokenAddress)
+  if (gatewayToken) return gatewayTokenAddress;
+
+  const gatekeeperAuthority = await getGatekeeper(payer);
+  const gatekeeperAccount =
+    await getGatekeeperAccountKeyFromGatekeeperAuthority(
+      gatekeeperAuthority.publicKey
+    );
+  
+  const transaction = new Transaction().add(
+    issueVanilla(
+      gatewayTokenAddress,
+      payer.publicKey,
+      gatekeeperAccount,
+      owner,
+      gatekeeperAuthority.publicKey,
+      gatekeeperNetwork.publicKey,
+    )
+  );
+
+  const txSignature = await connection.sendTransaction(transaction, [payer, gatekeeper]);
+  await connection.confirmTransaction(txSignature, 'confirmed');
+  
+  return gatewayTokenAddress;
 }
 
 let connection: Connection;
@@ -86,6 +145,15 @@ async function getConnection(): Promise<Connection> {
 
   console.log('Connection to cluster established:', url, version);
   return connection;
+}
+
+let gatekeeper: Account
+async function getGatekeeper(payer: Account): Promise<Account> {
+  if (gatekeeper) return gatekeeper;
+  
+  gatekeeper = await createGatekeeper(payer, gatekeeperNetwork)
+  
+  return gatekeeper;
 }
 
 export async function createTokenSwap(): Promise<void> {
@@ -143,7 +211,7 @@ export async function createTokenSwap(): Promise<void> {
   tokenAccountB = await mintB.createAccount(authority);
   console.log('minting token B to swap');
   await mintB.mintTo(tokenAccountB, owner, [], currentSwapTokenB);
-
+  
   console.log('creating token swap');
   const swapPayer = await newAccountWithLamports(connection, 10000000000);
   tokenSwap = await TokenSwap.createTokenSwap(
@@ -158,6 +226,7 @@ export async function createTokenSwap(): Promise<void> {
     mintB.publicKey,
     feeAccount,
     tokenAccountPool,
+    gatekeeperNetwork.publicKey,
     TOKEN_SWAP_PROGRAM_ID,
     TOKEN_PROGRAM_ID,
     nonce,
@@ -187,6 +256,7 @@ export async function createTokenSwap(): Promise<void> {
   assert(fetchedTokenSwap.mintB.equals(mintB.publicKey));
   assert(fetchedTokenSwap.poolToken.equals(tokenPool.publicKey));
   assert(fetchedTokenSwap.feeAccount.equals(feeAccount));
+  assert(fetchedTokenSwap.gatekeeperNetwork.equals(gatekeeperNetwork.publicKey));
   assert(
     TRADING_FEE_NUMERATOR == fetchedTokenSwap.tradeFeeNumerator.toNumber(),
   );
@@ -251,6 +321,9 @@ export async function depositAllTokenTypes(): Promise<void> {
   );
   console.log('Creating depositor pool token account');
   const newAccountPool = await tokenPool.createAccount(owner.publicKey);
+  
+  console.log("Creating depositor gateway token");
+  const gatewayToken = await getOrCreateGatewayToken(tokenSwap.payer, owner.publicKey);
 
   console.log('Depositing into swap');
   await tokenSwap.depositAllTokenTypes(
@@ -258,6 +331,7 @@ export async function depositAllTokenTypes(): Promise<void> {
     userAccountB,
     newAccountPool,
     userTransferAuthority,
+    gatewayToken,
     POOL_TOKEN_AMOUNT,
     tokenA,
     tokenB,
@@ -387,6 +461,9 @@ export async function createAccountAndSwapAtomic(): Promise<void> {
     ),
   );
 
+  console.log("Creating swapper gateway token");
+  const gatewayToken = await getOrCreateGatewayToken(tokenSwap.payer, owner.publicKey);
+
   transaction.add(
     TokenSwap.swapInstruction(
       tokenSwap.tokenSwap,
@@ -399,6 +476,7 @@ export async function createAccountAndSwapAtomic(): Promise<void> {
       tokenSwap.poolToken,
       tokenSwap.feeAccount,
       null,
+      gatewayToken,
       tokenSwap.swapProgramId,
       tokenSwap.tokenProgramId,
       SWAP_AMOUNT_IN,
@@ -442,6 +520,9 @@ export async function swap(): Promise<void> {
     ? await tokenPool.createAccount(owner.publicKey)
     : null;
 
+  console.log("Creating depositor gateway token");
+  const gatewayToken = await getOrCreateGatewayToken(tokenSwap.payer, owner.publicKey);
+
   console.log('Swapping');
   await tokenSwap.swap(
     userAccountA,
@@ -450,6 +531,7 @@ export async function swap(): Promise<void> {
     userAccountB,
     poolAccount,
     userTransferAuthority,
+    gatewayToken,
     SWAP_AMOUNT_IN,
     SWAP_AMOUNT_OUT,
   );
@@ -540,11 +622,15 @@ export async function depositSingleTokenTypeExactAmountIn(): Promise<void> {
   console.log('Creating depositor pool token account');
   const newAccountPool = await tokenPool.createAccount(owner.publicKey);
 
+  console.log("Creating depositor gateway token");
+  const gatewayToken = await getOrCreateGatewayToken(tokenSwap.payer, owner.publicKey);
+
   console.log('Depositing token A into swap');
   await tokenSwap.depositSingleTokenTypeExactAmountIn(
     userAccountA,
     newAccountPool,
     userTransferAuthority,
+    gatewayToken,
     depositAmount,
     poolTokenA,
   );
@@ -561,6 +647,7 @@ export async function depositSingleTokenTypeExactAmountIn(): Promise<void> {
     userAccountB,
     newAccountPool,
     userTransferAuthority,
+    gatewayToken,
     depositAmount,
     poolTokenB,
   );

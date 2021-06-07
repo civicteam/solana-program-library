@@ -26,6 +26,7 @@ arbitrary = { version = "0.4", features = ["derive"], optional = true }
 roots = { version = "0.0.6", optional = true }
 
 [dev-dependencies]
+solana-gateway-program = { git = "https://github.com/identity-com/on-chain-identity-gateway", branch = "develop", features = [ "no-entrypoint" ] }
 solana-sdk = "1.6.7"
 proptest = "0.10"
 sim =  { path = "./sim" }

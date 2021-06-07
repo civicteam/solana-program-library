@@ -64,8 +64,8 @@ export const TokenSwapLayout = BufferLayout.struct([
   Layout.publicKey('tokenPool'),
   Layout.publicKey('mintA'),
   Layout.publicKey('mintB'),
-  Layout.publicKey('gatekeeperNetwork'),
   Layout.publicKey('feeAccount'),
+  Layout.publicKey('gatekeeperNetwork'),
   Layout.uint64('tradeFeeNumerator'),
   Layout.uint64('tradeFeeDenominator'),
   Layout.uint64('ownerTradeFeeNumerator'),
@@ -196,6 +196,9 @@ export class TokenSwap {
     hostFeeDenominator: number,
     curveType: number,
   ): TransactionInstruction {
+    
+    
+    
     const keys = [
       {pubkey: tokenSwapAccount.publicKey, isSigner: false, isWritable: true},
       {pubkey: authority, isSigner: false, isWritable: false},
@@ -207,6 +210,7 @@ export class TokenSwap {
       {pubkey: gatekeeperNetwork, isSigner: false, isWritable: false},
       {pubkey: tokenProgramId, isSigner: false, isWritable: false},
     ];
+
     const commandDataLayout = BufferLayout.struct([
       BufferLayout.u8('instruction'),
       BufferLayout.u8('nonce'),
@@ -558,6 +562,7 @@ export class TokenSwap {
    * @param userAccountB User account for token B
    * @param poolAccount User account for pool token
    * @param userTransferAuthority Account delegated to transfer user's tokens
+   * @param gatewayToken Token indicating the wallet is authorised to trade
    * @param poolTokenAmount Amount of pool tokens to mint
    * @param maximumTokenA The maximum amount of token A to deposit
    * @param maximumTokenB The maximum amount of token B to deposit
@@ -761,6 +766,7 @@ export class TokenSwap {
    * @param userAccount User account to deposit token A or B
    * @param poolAccount User account to receive pool tokens
    * @param userTransferAuthority Account delegated to transfer user's tokens
+   * @param gatewayToken Token indicating the wallet is authorised to trade
    * @param sourceTokenAmount The amount of token A or B to deposit
    * @param minimumPoolTokenAmount Minimum amount of pool tokens to mint
    */
@@ -768,6 +774,7 @@ export class TokenSwap {
     userAccount: PublicKey,
     poolAccount: PublicKey,
     userTransferAuthority: Account,
+    gatewayToken: PublicKey,
     sourceTokenAmount: number | Numberu64,
     minimumPoolTokenAmount: number | Numberu64,
   ): Promise<TransactionSignature> {
@@ -784,6 +791,7 @@ export class TokenSwap {
           this.tokenAccountB,
           this.poolToken,
           poolAccount,
+          gatewayToken,
           this.swapProgramId,
           this.tokenProgramId,
           sourceTokenAmount,
@@ -804,6 +812,7 @@ export class TokenSwap {
     intoB: PublicKey,
     poolToken: PublicKey,
     poolAccount: PublicKey,
+    gatewayToken: PublicKey,
     swapProgramId: PublicKey,
     tokenProgramId: PublicKey,
     sourceTokenAmount: number | Numberu64,
@@ -836,6 +845,7 @@ export class TokenSwap {
       {pubkey: intoB, isSigner: false, isWritable: true},
       {pubkey: poolToken, isSigner: false, isWritable: true},
       {pubkey: poolAccount, isSigner: false, isWritable: true},
+      {pubkey: gatewayToken, isSigner: false, isWritable: false},
       {pubkey: tokenProgramId, isSigner: false, isWritable: false},
     ];
     return new TransactionInstruction({

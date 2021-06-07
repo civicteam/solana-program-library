@@ -107,9 +107,9 @@ pub enum SwapInstruction {
     ///   Must be empty, not owned by swap authority
     ///   6. `[writable]` Pool Token Account to deposit the initial pool token
     ///   supply.  Must be empty, not owned by swap authority.
-    ///   7. `[]` Gatekeeper key - the key of the gatekeeper for the swap.
+    ///   7. `[]` Gatekeeper network key - the key of the gatekeeper network for the swap.
     ///   Gateway tokens must be signed by this key. 
-    ///   8. '[]` Token program id
+    ///   8. `[]` Token program id
     Initialize(Initialize),
 
     ///   Swap the tokens in the pool.
@@ -123,8 +123,9 @@ pub enum SwapInstruction {
     ///   6. `[writable]` token_(A|B) DESTINATION Account assigned to USER as the owner.
     ///   7. `[writable]` Pool token mint, to generate trading fees
     ///   8. `[writable]` Fee account, to receive trading fees
-    ///   9. '[]` Token program id
-    ///   10 `[optional, writable]` Host fee account to receive additional trading fees
+    ///   9. `[]` Gateway token
+    ///   10. `[]` Token program id
+    ///   11 `[optional, writable]` Host fee account to receive additional trading fees
     Swap(Swap),
 
     ///   Deposit both types of tokens into the pool.  The output is a "pool"
@@ -140,7 +141,8 @@ pub enum SwapInstruction {
     ///   6. `[writable]` token_b Base Account to deposit into.
     ///   7. `[writable]` Pool MINT account, swap authority is the owner.
     ///   8. `[writable]` Pool Account to deposit the generated tokens, user is the owner.
-    ///   9. '[]` Token program id
+    ///   9. `[]` Gateway token
+    ///   10. `[]` Token program id
     DepositAllTokenTypes(DepositAllTokenTypes),
 
     ///   Withdraw both types of tokens from the pool at the current ratio, given
@@ -157,7 +159,7 @@ pub enum SwapInstruction {
     ///   7. `[writable]` token_a user Account to credit.
     ///   8. `[writable]` token_b user Account to credit.
     ///   9. `[writable]` Fee account, to receive withdrawal fees
-    ///   10 '[]` Token program id
+    ///   10 `[]` Token program id
     WithdrawAllTokenTypes(WithdrawAllTokenTypes),
 
     ///   Deposit one type of tokens into the pool.  The output is a "pool" token
@@ -172,7 +174,8 @@ pub enum SwapInstruction {
     ///   5. `[writable]` token_b Swap Account, may deposit INTO.
     ///   6. `[writable]` Pool MINT account, swap authority is the owner.
     ///   7. `[writable]` Pool Account to deposit the generated tokens, user is the owner.
-    ///   8. '[]` Token program id
+    ///   8. `[]` Gateway token
+    ///   9. `[]` Token program id
     DepositSingleTokenTypeExactAmountIn(DepositSingleTokenTypeExactAmountIn),
 
     ///   Withdraw one token type from the pool at the current ratio given the
@@ -187,7 +190,7 @@ pub enum SwapInstruction {
     ///   6. `[writable]` token_b Swap Account to potentially withdraw from.
     ///   7. `[writable]` token_(A|B) User Account to credit
     ///   8. `[writable]` Fee account, to receive withdrawal fees
-    ///   9. '[]` Token program id
+    ///   9. `[]` Token program id
     WithdrawSingleTokenTypeExactAmountOut(WithdrawSingleTokenTypeExactAmountOut),
 }
 
@@ -353,7 +356,7 @@ pub fn initialize(
     pool_pubkey: &Pubkey,
     fee_pubkey: &Pubkey,
     destination_pubkey: &Pubkey,
-    idv_pubkey: &Pubkey,
+    gatekeeper_network_pubkey: &Pubkey,
     nonce: u8,
     fees: Fees,
     swap_curve: SwapCurve,
@@ -373,7 +376,7 @@ pub fn initialize(
         AccountMeta::new(*pool_pubkey, false),
         AccountMeta::new_readonly(*fee_pubkey, false),
         AccountMeta::new(*destination_pubkey, false),
-        AccountMeta::new_readonly(*idv_pubkey, false),
+        AccountMeta::new_readonly(*gatekeeper_network_pubkey, false),
         AccountMeta::new_readonly(*token_program_id, false),
     ];
 

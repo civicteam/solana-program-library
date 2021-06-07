@@ -391,9 +391,11 @@ impl Processor {
 
         msg!("User transfer authority {}, authority {}", user_transfer_authority_info.key, authority_info.key);
 
-        let gateway_verification_result = Gateway::verify_gateway_token_account_info(&gateway_token_account_info, &owner.inner().key, &token_swap.gatekeeper_network)?;
+        // The wallet being checked during a swap is the destination token account.
+        let dest_token = Self::unpack_token_account(destination_info, &token_swap.token_program_id())?;
+        let gateway_verification_result = Gateway::verify_gateway_token_account_info(&gateway_token_account_info, &dest_token.owner, &token_swap.gatekeeper_network())?;
         msg!("Gateway Token validated {:?}", gateway_verification_result);
-        
+
         let trade_direction = if *swap_source_info.key == *token_swap.token_a_account() {
             TradeDirection::AtoB
         } else {
@@ -517,6 +519,7 @@ impl Processor {
         let token_b_info = next_account_info(account_info_iter)?;
         let pool_mint_info = next_account_info(account_info_iter)?;
         let dest_info = next_account_info(account_info_iter)?;
+        let gateway_token_account_info = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
         let token_swap = SwapVersion::unpack(&swap_info.data.borrow())?;
@@ -573,6 +576,11 @@ impl Processor {
         }
 
         let pool_token_amount = to_u64(pool_token_amount)?;
+
+        // The wallet being checked during a deposit is the owner of the pool token account.
+        let dest_token = Self::unpack_token_account(dest_info, &token_swap.token_program_id())?;
+        let gateway_verification_result = Gateway::verify_gateway_token_account_info(&gateway_token_account_info, &dest_token.owner, &token_swap.gatekeeper_network())?;
+        msg!("Gateway Token validated {:?}", gateway_verification_result);
 
         Self::token_transfer(
             swap_info.key,
@@ -748,6 +756,7 @@ impl Processor {
         let swap_token_b_info = next_account_info(account_info_iter)?;
         let pool_mint_info = next_account_info(account_info_iter)?;
         let destination_info = next_account_info(account_info_iter)?;
+        let gateway_token_account_info = next_account_info(account_info_iter)?;
         let token_program_info = next_account_info(account_info_iter)?;
 
         let token_swap = SwapVersion::unpack(&swap_info.data.borrow())?;
@@ -810,6 +819,11 @@ impl Processor {
         if pool_token_amount == 0 {
             return Err(SwapError::ZeroTradingTokens.into());
         }
+
+        // The wallet being checked during a deposit is the owner of the pool token account.
+        let dest_token = Self::unpack_token_account(destination_info, &token_swap.token_program_id())?;
+        let gateway_verification_result = Gateway::verify_gateway_token_account_info(&gateway_token_account_info, &dest_token.owner, &token_swap.gatekeeper_network())?;
+        msg!("Gateway Token validated {:?}", gateway_verification_result);
 
         match trade_direction {
             TradeDirection::AtoB => {
@@ -1185,9 +1199,15 @@ mod tests {
             AuthorityType,
         },
     };
+    use solana_gateway_program::{
+        id as gatewayProgramId,
+        instruction::{add_gatekeeper},
+    };
 
     // Test program id for the swap program.
     const SWAP_PROGRAM_ID: Pubkey = Pubkey::new_from_array([2u8; 32]);
+    
+    const GATEWAY_PROGRAM_ID: Pubkey = gatewayProgramId();
 
     struct TestSyscallStubs {}
 
@@ -1261,10 +1281,9 @@ mod tests {
         token_b_account: Account,
         token_b_mint_key: Pubkey,
         token_b_mint_account: Account,
-        gatekeeper_key: Pubkey,
-        gatekeeper_account: Account,
-        gateway_mint_key: Pubkey,
-        gateway_mint_account: Account,
+        gatekeeper_network: Pubkey,
+        // gatekeeper_account: Account,
+        // gateway_token: Pubkey,
     }
 
     impl SwapAccountInfo {
@@ -1320,11 +1339,11 @@ mod tests {
                 token_b_amount,
             );
 
-            let gatekeeper_key = Pubkey::new_unique();
-            // TODO Space and owner need to change
-            // TODO integrate gatekeeper key with account
-            let gatekeeper_account = Account::new(0, SwapVersion::LATEST_LEN, &SWAP_PROGRAM_ID);
-            let (gateway_mint_key, gateway_mint_account) = SwapAccountInfo::create_gateway_token(&user_transfer_key, &gatekeeper_key);
+            let gatekeeper_network = Pubkey::new_unique();
+            // let (gatekeeper_authority, gatekeeper_account) = create_gatekeeper(gatekeeper_network)
+            // 
+            // let gatekeeper_account = Account::new(0, SwapVersion::LATEST_LEN, &SWAP_PROGRAM_ID);
+            // let (gateway_mint_key, gateway_mint_account) = SwapAccountInfo::create_gateway_token(&user_transfer_key, &gatekeeper_key);
 
             SwapAccountInfo {
                 nonce,
@@ -1347,17 +1366,8 @@ mod tests {
                 token_b_account,
                 token_b_mint_key,
                 token_b_mint_account,
-                gatekeeper_key,
-                gatekeeper_account,
-                gateway_mint_key,
-                gateway_mint_account,
+                gatekeeper_network
             }
-        }
-
-        fn create_gateway_token(user_transfer_key: &Pubkey, gatekeeper_key: &Pubkey) -> (Pubkey, Account) {
-            let (gateway_mint_key, gateway_mint_account) =
-                create_mint(&TOKEN_PROGRAM_ID, &user_transfer_key, Some(&gatekeeper_key));
-            (gateway_mint_key, gateway_mint_account)
         }
 
         pub fn initialize_swap(&mut self) -> ProgramResult {
@@ -1372,7 +1382,7 @@ mod tests {
                     &self.pool_mint_key,
                     &self.pool_fee_key,
                     &self.pool_token_key,
-                    &self.gatekeeper_key,
+                    &self.gatekeeper_network,
                     self.nonce,
                     self.fees.clone(),
                     self.swap_curve.clone(),
@@ -1386,7 +1396,7 @@ mod tests {
                     &mut self.pool_mint_account,
                     &mut self.pool_fee_account,
                     &mut self.pool_token_account,
-                    &mut self.gatekeeper_account,
+                    &mut self.gatekeeper_network,
                     &mut Account::default(),
                 ],
             )
@@ -1851,6 +1861,12 @@ mod tests {
                 &account_infos,
                 &instruction.data,
                 swap_constraints,
+            )
+        } else if instruction.program_id == GATEWAY_PROGRAM_ID {
+            solana_gateway_program::processor::Processor::process(
+                &instruction.program_id,
+                &account_infos,
+                &instruction.data,
             )
         } else {
             spl_token::processor::Processor::process(
@@ -6782,7 +6798,7 @@ mod tests {
                 &accounts.pool_mint_key,
                 &accounts.pool_fee_key,
                 &accounts.pool_token_key,
-                &accounts.gatekeeper_key,
+                &accounts.gatekeeper_network,
                 accounts.nonce,
                 accounts.fees.clone(),
                 accounts.swap_curve.clone(),
@@ -7120,6 +7136,7 @@ mod tests {
         let withdrawer_key = Pubkey::new_unique();
 
         let mut accounts = SwapAccountInfo::new(
+            &user_key,
             &user_key,
             fees,
             swap_curve,

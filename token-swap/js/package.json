@@ -35,7 +35,7 @@
     "build": "tsc && tsc -p tsconfig.browser.json && npm run generate:flow",
     "prepare": "npm run build",
     "start": "ts-node cli/main.ts",
-    "start-with-test-validator": "start-server-and-test 'solana-test-validator --bpf-program SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8 ../../target/deploy/spl_token_swap.so --reset --quiet' http://localhost:8899/health start",
+    "start-with-test-validator": "start-server-and-test 'solana-test-validator --bpf-program SwaPpA9LAaLfeLi3a68M4DjnLqgtticKg6CnyNwgAC8 ../../target/deploy/spl_token_swap.so --bpf-program gatem74V238djXdzWnJf94Wo1DcnuGkfijbf3AuBhfs ../program/tests/fixtures/solana_gateway_program.so --reset --quiet' http://localhost:8899/health start",
     "lint": "npm run pretty && eslint .",
     "lint:fix": "npm run pretty:fix && eslint . --fix",
     "generate:flow": "flowgen dist/index.d.ts -o dist/module.flow.js",
@@ -58,6 +58,7 @@
     "mkdirp": "1.0.4"
   },
   "devDependencies": {
+    "@identity.com/solana-gateway-ts": "^0.0.9",
     "@solana/spl-token": "0.1.5",
     "@types/bn.js": "^5.1.0",
     "eslint": "^7.9.0",

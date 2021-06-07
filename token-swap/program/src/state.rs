@@ -36,8 +36,8 @@ pub trait SwapState {
     /// Fees associated with swap
     fn fees(&self) -> &Fees;
 
-    /// The swap's gatekeeper
-    fn idv(&self) -> &Pubkey;
+    /// The swap's gatekeeper network
+    fn gatekeeper_network(&self) -> &Pubkey;
     
     /// Curve associated with swap
     fn swap_curve(&self) -> &SwapCurve;
@@ -175,8 +175,8 @@ impl SwapState for SwapV1 {
         &self.fees
     }
 
-    fn idv(&self) -> &Pubkey {
-        &self.idv
+    fn gatekeeper_network(&self) -> &Pubkey {
+        &self.gatekeeper_network
     }
 
     fn swap_curve(&self) -> &SwapCurve {
@@ -206,10 +206,10 @@ impl Pack for SwapV1 {
             token_a_mint,
             token_b_mint,
             pool_fee_account,
+            gatekeeper_network,
             fees,
-            idv,
             swap_curve,
-        ) = mut_array_refs![output, 1, 1, 32, 32, 32, 32, 32, 32, 32, 64, 32, 33];
+        ) = mut_array_refs![output, 1, 1, 32, 32, 32, 32, 32, 32, 32, 32, 64, 33];
         is_initialized[0] = self.is_initialized as u8;
         nonce[0] = self.nonce;
         token_program_id.copy_from_slice(self.token_program_id.as_ref());
@@ -219,8 +219,8 @@ impl Pack for SwapV1 {
         token_a_mint.copy_from_slice(self.token_a_mint.as_ref());
         token_b_mint.copy_from_slice(self.token_b_mint.as_ref());
         pool_fee_account.copy_from_slice(self.pool_fee_account.as_ref());
+        gatekeeper_network.copy_from_slice(self.gatekeeper_network.as_ref());
         self.fees.pack_into_slice(&mut fees[..]);
-        idv.copy_from_slice(self.idv.as_ref());
         self.swap_curve.pack_into_slice(&mut swap_curve[..]);
     }
 
@@ -238,10 +238,10 @@ impl Pack for SwapV1 {
             token_a_mint,
             token_b_mint,
             pool_fee_account,
+            gatekeeper_network,
             fees,
-            idv,
             swap_curve,
-        ) = array_refs![input, 1, 1, 32, 32, 32, 32, 32, 32, 32, 64, 32, 33];
+        ) = array_refs![input, 1, 1, 32, 32, 32, 32, 32, 32, 32, 32, 64, 33];
         Ok(Self {
             is_initialized: match is_initialized {
                 [0] => false,
@@ -256,8 +256,8 @@ impl Pack for SwapV1 {
             token_a_mint: Pubkey::new_from_array(*token_a_mint),
             token_b_mint: Pubkey::new_from_array(*token_b_mint),
             pool_fee_account: Pubkey::new_from_array(*pool_fee_account),
+            gatekeeper_network: Pubkey::new_from_array(*gatekeeper_network),
             fees: Fees::unpack_from_slice(fees)?,
-            idv: Pubkey::new_from_array(*idv),
             swap_curve: SwapCurve::unpack_from_slice(swap_curve)?,
         })
     }
@@ -289,7 +289,7 @@ mod tests {
     const TEST_TOKEN_A_MINT: Pubkey = Pubkey::new_from_array([5u8; 32]);
     const TEST_TOKEN_B_MINT: Pubkey = Pubkey::new_from_array([6u8; 32]);
     const TEST_POOL_FEE_ACCOUNT: Pubkey = Pubkey::new_from_array([7u8; 32]);
-    const TEST_GATEKEEPER: Pubkey = Pubkey::new_from_array([7u8; 32]);
+    const TEST_GATEKEEPER_NETWORK: Pubkey = Pubkey::new_from_array([7u8; 32]);
 
     const TEST_CURVE_TYPE: u8 = 2;
     const TEST_AMP: u64 = 1;
@@ -314,7 +314,7 @@ mod tests {
             token_b_mint: TEST_TOKEN_B_MINT,
             pool_fee_account: TEST_POOL_FEE_ACCOUNT,
             fees: TEST_FEES,
-            gatekeeper_network: TEST_GATEKEEPER,
+            gatekeeper_network: TEST_GATEKEEPER_NETWORK,
             swap_curve: swap_curve.clone(),
         });
 
@@ -332,7 +332,7 @@ mod tests {
         assert_eq!(*unpacked.token_b_mint(), TEST_TOKEN_B_MINT);
         assert_eq!(*unpacked.pool_fee_account(), TEST_POOL_FEE_ACCOUNT);
         assert_eq!(*unpacked.fees(), TEST_FEES);
-        assert_eq!(*unpacked.idv(), TEST_GATEKEEPER);
+        assert_eq!(*unpacked.gatekeeper(), TEST_GATEKEEPER_NETWORK);
         assert_eq!(*unpacked.swap_curve(), swap_curve);
     }
 
@@ -355,7 +355,7 @@ mod tests {
             token_b_mint: TEST_TOKEN_B_MINT,
             pool_fee_account: TEST_POOL_FEE_ACCOUNT,
             fees: TEST_FEES,
-            idv: TEST_GATEKEEPER,
+            gatekeeper_network: TEST_GATEKEEPER_NETWORK,
             swap_curve,
         };
 
