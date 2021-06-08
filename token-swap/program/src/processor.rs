@@ -6855,6 +6855,22 @@ mod tests {
         (owner_key, host_fee_numerator, host_fee_denominator, token_a_amount, token_b_amount, fees, swap_curve)
     }
 
+    fn create_gatekeeper(payer: &Pubkey, gatekeeper_network: &Pubkey) -> () {
+        let mut rent_sysvar_account = create_account_for_test(&Rent::free());
+        let gatekeeper_authority = Pubkey::new_unique();
+
+        let instruction = add_gatekeeper(
+            gatekeeper_network,
+            &gatekeeper_authority,
+            gatekeeper_network);
+        do_process_instruction(
+            instruction,
+            vec![
+                &mut rent_sysvar_account
+            ]
+        )
+    }
+
     #[test]
     fn test_overdraw_offset_curve() {
         let trade_fee_numerator = 1;
