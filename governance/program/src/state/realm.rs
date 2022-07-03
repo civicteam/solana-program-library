@@ -202,12 +202,12 @@ impl RealmV2 {
         &self,
         governing_token_mint: &Pubkey,
     ) -> Result<(), ProgramError> {
-        // If the deposit is for the community token and the realm uses community voter weight addin then panic
-        if self.config.use_community_voter_weight_addin
-            && self.community_mint == *governing_token_mint
-        {
-            return Err(GovernanceError::GoverningTokenDepositsNotAllowed.into());
-        }
+        // // If the deposit is for the community token and the realm uses community voter weight addin then panic
+        // if self.config.use_community_voter_weight_addin
+        //     && self.community_mint == *governing_token_mint
+        // {
+        //     return Err(GovernanceError::GoverningTokenDepositsNotAllowed.into());
+        // }
 
         Ok(())
     }
