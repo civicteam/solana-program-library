@@ -46,6 +46,8 @@ pub mod non_transferable;
 pub mod reallocate;
 /// Transfer Fee extension
 pub mod transfer_fee;
+// Expirable extension
+pub mod expirable;
 
 /// Length in TLV structure
 #[derive(Clone, Copy, Debug, Default, PartialEq, Pod, Zeroable)]
@@ -625,6 +627,8 @@ pub enum ExtensionType {
     NonTransferable,
     /// Tokens accrue interest over time,
     InterestBearingConfig,
+    /// Indicates that the tokens from this mint can expire and be refreshed
+    Expirable,
     /// Padding extension used to make an account exactly Multisig::LEN, used for testing
     #[cfg(test)]
     AccountPaddingTest = u16::MAX - 1,
