@@ -23,7 +23,7 @@ uint = "0.9"
 proptest = "1.2.0"
 solana-program-test = "1.16.3"
 solana-sdk = "1.16.3"
-libm = "0.2.7"
+libm = "0.2.8"
 
 [lib]
 crate-type = ["cdylib", "lib"]
