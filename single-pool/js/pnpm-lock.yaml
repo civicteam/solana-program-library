@@ -10,10 +10,10 @@ dependencies:
     version: 4.0.1
   '@solana/spl-token':
     specifier: ^0.3.8
-    version: 0.3.8(@solana/web3.js@1.78.4)
+    version: 0.3.8(@solana/web3.js@1.87.3)
   '@solana/web3.js':
-    specifier: ^1.78.4
-    version: 1.78.4
+    specifier: ^1.87.3
+    version: 1.87.3
 
 devDependencies:
   '@ava/typescript':
@@ -59,8 +59,8 @@ packages:
       execa: 7.2.0
     dev: true
 
-  /@babel/runtime@7.22.10:
-    resolution: {integrity: sha512-21t/fkKLMZI4pqP2wlmsQAWnYW1PDyKyyUV4vCi+B25ydmdaYTKXPwCj0BzSUnZf4seIiYvSA3jcZ3gdsMFkLQ==}
+  /@babel/runtime@7.23.2:
+    resolution: {integrity: sha512-mM8eg4yl5D6i3lu2QKPuPH4FArvJ8KhTofbE7jwMUv9KX5mBvwPAqnV3MlyBNqdp9RyRKP6Yck8TrfYrPvX3bg==}
     engines: {node: '>=6.9.0'}
     dependencies:
       regenerator-runtime: 0.14.0
@@ -364,13 +364,17 @@ packages:
       '@jridgewell/sourcemap-codec': 1.4.15
     dev: true
 
-  /@noble/curves@1.1.0:
-    resolution: {integrity: sha512-091oBExgENk/kGj3AZmtBDMpxQPDtxQABR2B9lb1JbVTs6ytdzZNwvhxQ4MWasRNEzlbEH8jCWFCwhF/Obj5AA==}
+  /@noble/curves@1.2.0:
+    resolution: {integrity: sha512-oYclrNgRaM9SsBUBVbb8M6DTV7ZHRTKugureoYEncY5c65HOmRzvSiTE3y5CYaPYJA/GVkrhXEoF0M3Ya9PMnw==}
     dependencies:
-      '@noble/hashes': 1.3.1
+      '@noble/hashes': 1.3.2
 
   /@noble/hashes@1.3.1:
     resolution: {integrity: sha512-EbqwksQwz9xDRGfDST86whPBgM65E0OH/pCgqW0GBVzO22bNE+NuIbeTb714+IfSjU3aRk47EUvXIb5bTsenKA==}
+    engines: {node: '>= 16'}
+
+  /@noble/hashes@1.3.2:
+    resolution: {integrity: sha512-MVC8EAQp7MvEcm30KWENFjgR+Mkmf+D189XJTkFIlwohU5hcBbn1ZkKq7KVTi2Hme3PMGF390DaL52beVrIihQ==}
     engines: {node: '>= 16'}
 
   /@nodelib/fs.scandir@2.1.5:
@@ -411,7 +415,7 @@ packages:
     engines: {node: '>= 10'}
     dependencies:
       '@solana/buffer-layout': 4.0.1
-      '@solana/web3.js': 1.78.4
+      '@solana/web3.js': 1.87.3
       bigint-buffer: 1.1.5
       bignumber.js: 9.1.1
     transitivePeerDependencies:
@@ -426,7 +430,7 @@ packages:
     dependencies:
       buffer: 6.0.3
 
-  /@solana/spl-token@0.3.8(@solana/web3.js@1.78.4):
+  /@solana/spl-token@0.3.8(@solana/web3.js@1.87.3):
     resolution: {integrity: sha512-ogwGDcunP9Lkj+9CODOWMiVJEdRtqHAtX2rWF62KxnnSWtMZtV9rDhTrZFshiyJmxDnRL/1nKE1yJHg4jjs3gg==}
     engines: {node: '>=16'}
     peerDependencies:
@@ -434,7 +438,7 @@ packages:
     dependencies:
       '@solana/buffer-layout': 4.0.1
       '@solana/buffer-layout-utils': 0.2.0
-      '@solana/web3.js': 1.78.4
+      '@solana/web3.js': 1.87.3
       buffer: 6.0.3
     transitivePeerDependencies:
       - bufferutil
@@ -442,11 +446,11 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@solana/web3.js@1.78.4:
-    resolution: {integrity: sha512-up5VG1dK+GPhykmuMIozJZBbVqpm77vbOG6/r5dS7NBGZonwHfTLdBbsYc3rjmaQ4DpCXUa3tUc4RZHRORvZrw==}
+  /@solana/web3.js@1.87.3:
+    resolution: {integrity: sha512-WGLzTZpi00vP443qGK3gL+LZXQJwaWkh6bzNXYpMTCAH2Z102y3YbPWOoQzJUeRSZWSXKh7MFkA3vDMFlMvGZQ==}
     dependencies:
-      '@babel/runtime': 7.22.10
-      '@noble/curves': 1.1.0
+      '@babel/runtime': 7.23.2
+      '@noble/curves': 1.2.0
       '@noble/hashes': 1.3.1
       '@solana/buffer-layout': 4.0.1
       agentkeepalive: 4.5.0
@@ -2223,7 +2227,7 @@ packages:
   /rpc-websockets@7.6.0:
     resolution: {integrity: sha512-Jgcs8q6t8Go98dEulww1x7RysgTkzpCMelVxZW4hvuyFtOGpeUz9prpr2KjUa/usqxgFCd9Tu3+yhHEP9GVmiQ==}
     dependencies:
-      '@babel/runtime': 7.22.10
+      '@babel/runtime': 7.23.2
       eventemitter3: 4.0.7
       uuid: 8.3.2
       ws: 8.13.0(bufferutil@4.0.7)(utf-8-validate@5.0.10)
@@ -2349,7 +2353,7 @@ packages:
     resolution: {integrity: sha512-JkoU7yEyaJAZDMw5wGsFXOI/BNTk1lwcPX6Kgg9dBrCo0xs1VTn/ipwjKXwdRFLKF9N2kt4x+bLAipDp7W6GiA==}
     engines: {node: '>= 10'}
     dependencies:
-      '@solana/web3.js': 1.78.4
+      '@solana/web3.js': 1.87.3
       bs58: 4.0.1
     optionalDependencies:
       solana-bankrun-darwin-arm64: 0.1.1
