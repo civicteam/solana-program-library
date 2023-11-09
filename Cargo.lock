@@ -3186,11 +3186,11 @@ dependencies = [
 
 [[package]]
 name = "num_enum"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70bf6736f74634d299d00086f02986875b3c2d924781a6a2cb6c201e73da0ceb"
+checksum = "683751d591e6d81200c39fb0d1032608b77724f34114db54f571ff1317b337c0"
 dependencies = [
- "num_enum_derive 0.7.0",
+ "num_enum_derive 0.7.1",
 ]
 
 [[package]]
@@ -3219,9 +3219,9 @@ dependencies = [
 
 [[package]]
 name = "num_enum_derive"
-version = "0.7.0"
+version = "0.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "56ea360eafe1022f7cc56cd7b869ed57330fb2453d0c7831d99b74c65d2f5597"
+checksum = "6c11e44798ad209ccdd91fc192f0526a369a01234f7373e1b141c96d7cee4f0e"
 dependencies = [
  "proc-macro-crate 1.1.0",
  "proc-macro2 1.0.63",
@@ -6690,7 +6690,7 @@ dependencies = [
 name = "spl-instruction-padding"
 version = "0.1.0"
 dependencies = [
- "num_enum 0.7.0",
+ "num_enum 0.7.1",
  "solana-program",
  "solana-program-test",
  "solana-sdk",
@@ -6854,7 +6854,7 @@ dependencies = [
  "borsh 0.10.3",
  "num-derive 0.4.0",
  "num-traits",
- "num_enum 0.7.0",
+ "num_enum 0.7.1",
  "rand 0.8.5",
  "solana-program",
  "solana-program-test",
@@ -6875,7 +6875,7 @@ dependencies = [
  "borsh 0.10.3",
  "num-derive 0.4.0",
  "num-traits",
- "num_enum 0.7.0",
+ "num_enum 0.7.1",
  "proptest",
  "serde",
  "serde_derive",
@@ -6952,7 +6952,7 @@ dependencies = [
  "lazy_static",
  "num-derive 0.4.0",
  "num-traits",
- "num_enum 0.7.0",
+ "num_enum 0.7.1",
  "proptest",
  "serial_test",
  "solana-program",
@@ -6989,7 +6989,7 @@ dependencies = [
  "lazy_static",
  "num-derive 0.4.0",
  "num-traits",
- "num_enum 0.7.0",
+ "num_enum 0.7.1",
  "proptest",
  "serde",
  "serde_json",
@@ -7183,7 +7183,7 @@ version = "0.1.1"
 dependencies = [
  "num-derive 0.4.0",
  "num-traits",
- "num_enum 0.7.0",
+ "num_enum 0.7.1",
  "solana-program",
  "solana-program-test",
  "solana-sdk",
@@ -7221,7 +7221,7 @@ name = "spl-token-wrap"
 version = "0.1.0"
 dependencies = [
  "bytemuck",
- "num_enum 0.7.0",
+ "num_enum 0.7.1",
  "solana-program",
  "spl-associated-token-account 2.0.0",
  "spl-token 4.0.0",
@@ -7251,7 +7251,7 @@ dependencies = [
  "bytemuck",
  "num-derive 0.4.0",
  "num-traits",
- "num_enum 0.7.0",
+ "num_enum 0.7.1",
  "solana-program",
  "spl-discriminator",
  "spl-tlv-account-resolution",
