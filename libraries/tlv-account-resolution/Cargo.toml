@@ -13,7 +13,7 @@ test-sbf = []
 
 [dependencies]
 bytemuck = { version = "1.15.0", features = ["derive"] }
-serde = { version = "1.0.197", optional = true }
+serde = { version = "1.0.201", optional = true }
 solana-program = ">=1.18.2,<=2"
 spl-discriminator = { version = "0.1", path = "../discriminator" }
 spl-program-error = { version = "0.3", path = "../program-error" }
