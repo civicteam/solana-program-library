@@ -16,7 +16,7 @@ arrayref = "0.3.7"
 borsh = "1.5.0"
 num-derive = "0.4"
 num-traits = "0.2"
-num_enum = "0.7.2"
+num_enum = "0.7.3"
 solana-program = ">=1.18.11,<=2"
 solana-security-txt = "1.1.1"
 spl-token = { version = "4.0", path = "../../token/program", features = [
