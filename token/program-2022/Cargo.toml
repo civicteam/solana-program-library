@@ -21,7 +21,7 @@ token-group = []
 confidential-hook = []
 
 [dependencies]
-arrayref = "0.3.7"
+arrayref = "0.3.9"
 bytemuck = { version = "1.16.0", features = ["derive"] }
 num-derive = "0.4"
 num-traits = "0.2"
