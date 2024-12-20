@@ -718,8 +718,8 @@ importers:
         specifier: ^4.3.16
         version: 4.3.16
       '@types/chai-as-promised':
-        specifier: ^7.1.4
-        version: 7.1.8
+        specifier: ^8.0.1
+        version: 8.0.1
       '@types/mocha':
         specifier: ^10.0.6
         version: 10.0.6
@@ -791,8 +791,8 @@ importers:
         specifier: ^4.3.16
         version: 4.3.16
       '@types/chai-as-promised':
-        specifier: ^7.1.4
-        version: 7.1.8
+        specifier: ^8.0.1
+        version: 8.0.1
       '@types/mocha':
         specifier: ^10.0.6
         version: 10.0.6
@@ -812,8 +812,8 @@ importers:
         specifier: ^5.1.1
         version: 5.1.1
       chai-as-promised:
-        specifier: ^7.1.2
-        version: 7.1.2(chai@5.1.1)
+        specifier: ^8.0.1
+        version: 8.0.1(chai@5.1.1)
       eslint:
         specifier: ^8.57.0
         version: 8.57.0
@@ -2699,8 +2699,8 @@ packages:
       '@types/node': 20.12.12
     dev: true
 
-  /@types/chai-as-promised@7.1.8:
-    resolution: {integrity: sha512-ThlRVIJhr69FLlh6IctTXFkmhtP3NpMZ2QGq69StYLyKZFp/HOp1VdKZj7RvfNWYYcJ1xlbLGLLWj1UvP5u/Gw==}
+  /@types/chai-as-promised@8.0.1:
+    resolution: {integrity: sha512-dAlDhLjJlABwAVYObo9TPWYTRg9NaQM5CXeaeJYcYAkvzUf0JRLIiog88ao2Wqy/20WUnhbbUZcgvngEbJ3YXQ==}
     dependencies:
       '@types/chai': 4.3.16
     dev: true
@@ -3941,13 +3941,13 @@ packages:
       nofilter: 3.1.0
     dev: true
 
-  /chai-as-promised@7.1.2(chai@5.1.1):
-    resolution: {integrity: sha512-aBDHZxRzYnUYuIAIPBH2s511DjlKPzXNlXSGFC8CwmroWQLfrW0LtE1nK3MAwwNhJPa9raEjNCmRoFpG0Hurdw==}
+  /chai-as-promised@8.0.1(chai@5.1.1):
+    resolution: {integrity: sha512-OIEJtOL8xxJSH8JJWbIoRjybbzR52iFuDHuF8eb+nTPD6tgXLjRqsgnUGqQfFODxYvq5QdirT0pN9dZ0+Gz6rA==}
     peerDependencies:
       chai: '>= 2.1.2 < 6'
     dependencies:
       chai: 5.1.1
-      check-error: 1.0.3
+      check-error: 2.1.1
     dev: true
 
   /chai@5.1.1:
@@ -3985,12 +3985,6 @@ packages:
   /char-regex@1.0.2:
     resolution: {integrity: sha512-kWWXztvZ5SBQV+eRgKFeh8q5sLuZY2+8WUIzlxWVTg+oGwY14qylx1KbKzHd8P6ZYkAg0xyIDU9JMHhyJMZ1jw==}
     engines: {node: '>=10'}
-    dev: true
-
-  /check-error@1.0.3:
-    resolution: {integrity: sha512-iKEoDYaRmd1mxM90a2OEfWhjsjPpYPuQ+lMYsoxB126+t8fw7ySEO48nmDg5COTjxDI65/Y2OWpeEHk3ZOe8zg==}
-    dependencies:
-      get-func-name: 2.0.2
     dev: true
 
   /check-error@2.1.1:
