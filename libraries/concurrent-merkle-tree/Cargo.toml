@@ -17,7 +17,7 @@ bytemuck = "1.16"
 thiserror = "1.0.60"
 
 [dev-dependencies]
-rand_distr = "0.4.3"
+rand_distr = "0.5.0"
 rand = "0.8"
 spl-merkle-tree-reference = { version = "0.1.0", path = "../merkle-tree-reference" }
 tokio = { version = "1.37", features = ["full"] }
