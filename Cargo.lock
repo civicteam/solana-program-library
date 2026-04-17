@@ -368,7 +368,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
 dependencies = [
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.6",
 ]
 
 [[package]]
@@ -596,7 +596,7 @@ dependencies = [
  "getrandom 0.2.10",
  "instant",
  "pin-project-lite",
- "rand 0.8.5",
+ "rand 0.8.6",
  "tokio",
 ]
 
@@ -2190,6 +2190,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "getrandom"
+version = "0.3.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libc",
+ "r-efi",
+ "wasip2",
+]
+
+[[package]]
 name = "gimli"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2875,9 +2887,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.152"
+version = "0.2.185"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
+checksum = "52ff2c0fe9bc6cb6b14a0592c2ff4fa9ceb83eea9db979b0487cd054946a2b8f"
 
 [[package]]
 name = "libloading"
@@ -3549,7 +3561,7 @@ dependencies = [
  "lazy_static",
  "percent-encoding 2.3.1",
  "pin-project",
- "rand 0.8.5",
+ "rand 0.8.6",
  "thiserror",
 ]
 
@@ -3968,7 +3980,7 @@ dependencies = [
  "bitflags 2.4.2",
  "lazy_static",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rand_chacha 0.3.1",
  "rand_xorshift",
  "regex-syntax",
@@ -4090,7 +4102,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "141bf7dfde2fbc246bfd3fe12f2455aa24b0fbd9af535d8c86c7bd1381ff2b1a"
 dependencies = [
  "bytes",
- "rand 0.8.5",
+ "rand 0.8.6",
  "ring 0.16.20",
  "rustc-hash",
  "rustls",
@@ -4124,6 +4136,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "r-efi"
+version = "5.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
+
+[[package]]
 name = "rand"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4138,13 +4156,23 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+checksum = "5ca0ecfa931c29007047d1bc58e623ab12e5590e8c7cc53200d5202b69266d8a"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44c5af06bb1b7d3216d91932aed5265164bf384dc89cd6ba05cf59a35f5f76ea"
+dependencies = [
+ "rand_chacha 0.9.0",
+ "rand_core 0.9.5",
 ]
 
 [[package]]
@@ -4168,6 +4196,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_chacha"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d3022b5f1df60f26e1ffddd6c66e8aa15de382ae63b3a0c1bfc0e4d3e3f325cb"
+dependencies = [
+ "ppv-lite86",
+ "rand_core 0.9.5",
+]
+
+[[package]]
 name = "rand_core"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4186,13 +4224,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_core"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "76afc826de14238e6e8c374ddcc1fa19e374fd8dd986b0d2af0d02377261d83c"
+dependencies = [
+ "getrandom 0.3.4",
+]
+
+[[package]]
 name = "rand_distr"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
 dependencies = [
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.6",
 ]
 
 [[package]]
@@ -5076,7 +5123,7 @@ dependencies = [
  "futures 0.3.30",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand 0.8.6",
  "sha-1 0.9.8",
 ]
 
@@ -5137,7 +5184,7 @@ dependencies = [
  "ouroboros",
  "percentage",
  "qualifier_attr",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rayon",
  "regex",
  "rustc_version",
@@ -5244,7 +5291,7 @@ dependencies = [
  "bv",
  "fnv",
  "log",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rayon",
  "rustc_version",
  "serde",
@@ -5285,7 +5332,7 @@ dependencies = [
  "memmap2",
  "modular-bitfield",
  "num_enum 0.7.2",
- "rand 0.8.5",
+ "rand 0.8.6",
  "solana-measure",
  "solana-sdk",
  "tempfile",
@@ -5438,7 +5485,7 @@ dependencies = [
  "futures-util",
  "indexmap 2.2.1",
  "log",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rayon",
  "rcgen",
  "solana-measure",
@@ -5473,7 +5520,7 @@ dependencies = [
  "num_enum 0.7.2",
  "prio-graph",
  "quinn",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rand_chacha 0.3.1",
  "rayon",
  "rcgen",
@@ -5560,7 +5607,7 @@ dependencies = [
  "dlopen2",
  "lazy_static",
  "log",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rayon",
  "serde",
  "solana-measure",
@@ -5676,7 +5723,7 @@ dependencies = [
  "log",
  "lru",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rand_chacha 0.3.1",
  "rayon",
  "rustc_version",
@@ -5734,7 +5781,7 @@ dependencies = [
  "num_cpus",
  "num_enum 0.7.2",
  "prost",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rand_chacha 0.3.1",
  "rayon",
  "reed-solomon-erasure",
@@ -5846,7 +5893,7 @@ dependencies = [
  "crossbeam-channel",
  "log",
  "nix",
- "rand 0.8.5",
+ "rand 0.8.6",
  "serde",
  "serde_derive",
  "socket2",
@@ -5880,7 +5927,7 @@ dependencies = [
  "libc",
  "log",
  "nix",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rayon",
  "rustc_version",
  "serde",
@@ -5947,7 +5994,7 @@ dependencies = [
  "num-derive 0.4.2",
  "num-traits",
  "parking_lot 0.12.0",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rustc_version",
  "rustversion",
  "serde",
@@ -5981,7 +6028,7 @@ dependencies = [
  "num-derive 0.4.2",
  "num-traits",
  "percentage",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rustc_version",
  "serde",
  "solana-frozen-abi",
@@ -6260,7 +6307,7 @@ dependencies = [
  "ouroboros",
  "percentage",
  "qualifier_attr",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rayon",
  "regex",
  "rustc_version",
@@ -6334,7 +6381,7 @@ dependencies = [
  "qstring",
  "qualifier_attr",
  "rand 0.7.3",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rustc_version",
  "rustversion",
  "serde",
@@ -6477,7 +6524,7 @@ dependencies = [
  "pkcs8",
  "quinn",
  "quinn-proto",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rcgen",
  "rustls",
  "smallvec",
@@ -6613,7 +6660,7 @@ dependencies = [
  "log",
  "lru",
  "quinn",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rand_chacha 0.3.1",
  "rayon",
  "rcgen",
@@ -6804,7 +6851,7 @@ dependencies = [
  "hash32",
  "libc",
  "log",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rustc-demangle",
  "scroll",
  "thiserror",
@@ -6895,7 +6942,7 @@ name = "spl-concurrent-merkle-tree"
 version = "0.2.0"
 dependencies = [
  "bytemuck",
- "rand 0.8.5",
+ "rand 0.9.4",
  "rand_distr",
  "solana-program",
  "spl-merkle-tree-reference",
@@ -7355,7 +7402,7 @@ dependencies = [
  "num-derive 0.4.2",
  "num-traits",
  "num_enum 0.7.2",
- "rand 0.8.5",
+ "rand 0.9.4",
  "solana-program",
  "solana-program-test",
  "solana-sdk",
@@ -8208,7 +8255,7 @@ dependencies = [
  "humantime",
  "opentelemetry",
  "pin-project",
- "rand 0.8.5",
+ "rand 0.8.6",
  "serde",
  "static_assertions",
  "tarpc-plugins",
@@ -8630,7 +8677,7 @@ dependencies = [
  "indexmap 1.9.3",
  "pin-project",
  "pin-project-lite",
- "rand 0.8.5",
+ "rand 0.8.6",
  "slab",
  "tokio",
  "tokio-util 0.7.1",
@@ -8732,7 +8779,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rustls",
  "sha1",
  "thiserror",
@@ -8970,6 +9017,15 @@ name = "wasi"
 version = "0.11.0+wasi-snapshot-preview1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
+
+[[package]]
+name = "wasip2"
+version = "1.0.2+wasi-0.2.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9517f9239f02c069db75e65f174b3da828fe5f5b945c4dd26bd25d89c03ebcf5"
+dependencies = [
+ "wit-bindgen",
+]
 
 [[package]]
 name = "wasm-bindgen"
@@ -9266,6 +9322,12 @@ dependencies = [
  "cfg-if 1.0.0",
  "windows-sys 0.48.0",
 ]
+
+[[package]]
+name = "wit-bindgen"
+version = "0.51.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7249219f66ced02969388cf2bb044a09756a083d0fab1e566056b04d9fbcaa5"
 
 [[package]]
 name = "x509-parser"
