@@ -512,7 +512,7 @@ checksum = "c6fa2087f2753a7da8cc1c0dbfcf89579dd57458e36769de5ac750b4671737ca"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -650,7 +650,7 @@ name = "binary-option"
 version = "0.1.0"
 dependencies = [
  "arrayref",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "solana-program",
  "spl-token 4.0.1",
  "thiserror",
@@ -684,7 +684,7 @@ dependencies = [
  "regex",
  "rustc-hash",
  "shlex",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -808,11 +808,12 @@ dependencies = [
 
 [[package]]
 name = "borsh"
-version = "1.5.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbe5b10e214954177fb1dc9fbd20a1a2608fe99e6c832033bdc7cea287a20d77"
+checksum = "a88b7ea17d208c4193f2c1e6de3c35fe71f98c96982d5ced308bdcc749ff6e1f"
 dependencies = [
- "borsh-derive 1.5.0",
+ "borsh-derive 1.8.0",
+ "bytes",
  "cfg_aliases",
 ]
 
@@ -844,16 +845,15 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive"
-version = "1.5.0"
+version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7a8646f94ab393e43e8b35a2558b1624bed28b97ee09c5d15456e3c9463f46d"
+checksum = "d8f347189c62a579b8cd5f80714efa178f52e461dc2e6d701d264f5ff22e566c"
 dependencies = [
  "once_cell",
  "proc-macro-crate 3.1.0",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
- "syn_derive",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1084,9 +1084,9 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "cfg_aliases"
-version = "0.1.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fd16c4719339c4530435d38e511904438d07cce7950afa3718a84ac36c10e89e"
+checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
 name = "cgen"
@@ -1215,7 +1215,7 @@ dependencies = [
  "heck 0.4.1",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1521,7 +1521,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "strsim 0.10.0",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1532,7 +1532,7 @@ checksum = "836a9bbc7ad63342d6d6e7b815ccab164bc77a2d95d84bc3117a8c0d5c98e2d5"
 dependencies = [
  "darling_core",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1603,7 +1603,7 @@ checksum = "67e77553c4162a157adbf834ebae5b415acbecbeafc7a74b0e886657506a7611"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1727,7 +1727,7 @@ checksum = "a6cbae11b3de8fce2a456e8ea3dada226b35fe791f0dc1d360c0941f0bb681f3"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1833,7 +1833,7 @@ checksum = "03cdc46ec28bd728e67540c528013c6a10eb69a02eb31078a1bda695438cbfb8"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -1858,7 +1858,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -2099,7 +2099,7 @@ checksum = "87750cf4b7a4c0625b1529e4c543c2182106e4dedc60a2a6455e00d212c489ac"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3340,7 +3340,7 @@ checksum = "ed3955f1a9c7c0c15e092f9c887db08b1fc683305fdf6eb6684f22555355e202"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3423,7 +3423,7 @@ dependencies = [
  "proc-macro-crate 1.1.0",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3435,7 +3435,7 @@ dependencies = [
  "proc-macro-crate 3.1.0",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3760,7 +3760,7 @@ checksum = "39407670928234ebc5e6e580247dd567ad73a3578460c5990f9503df207e8f07"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3887,7 +3887,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ceca8aaf45b5c46ec7ed39fff75f57290368c1846d33d24a122ca81416ab058"
 dependencies = [
  "proc-macro2",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -3950,9 +3950,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.78"
+version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2422ad645d89c99f8f3e6b88a9fdeca7fabeac836b1002371c4367c8f984aae"
+checksum = "8fd00f0bb2e90d81d1044c2b32617f68fcb9fa3bb7640c23e9c748e53fb30934"
 dependencies = [
  "unicode-ident",
 ]
@@ -4057,7 +4057,7 @@ checksum = "9e2e25ee72f5b24d773cae88422baddefff7714f97aab68d96fe2b6fc4a28fb2"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -4711,7 +4711,7 @@ checksum = "6048858004bcff69094cd972ed40a32500f153bd3be9f716b2eed2e8217c4838"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -4774,7 +4774,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -4786,7 +4786,7 @@ dependencies = [
  "darling",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -4824,7 +4824,7 @@ checksum = "82fe9db325bcef1fbcde82e078a5cc4efdf787e96b3b9cf45b50b529f2083d67"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -5193,7 +5193,7 @@ version = "1.18.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f1630817c0df2ca64afd07e850b2a439f55dab75850008c1f3d6378d55f43a43"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "futures 0.3.30",
  "solana-banks-interface",
  "solana-program",
@@ -5629,7 +5629,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustc_version",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -5926,7 +5926,7 @@ dependencies = [
  "blake3",
  "borsh 0.10.3",
  "borsh 0.9.3",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "bs58",
  "bv",
  "bytemuck",
@@ -6310,7 +6310,7 @@ dependencies = [
  "base64 0.21.7",
  "bincode",
  "bitflags 2.4.2",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "bs58",
  "bytemuck",
  "byteorder",
@@ -6365,7 +6365,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -6854,7 +6854,7 @@ name = "spl-associated-token-account"
 version = "3.0.2"
 dependencies = [
  "assert_matches",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "num-derive 0.4.2",
  "num-traits",
  "solana-program",
@@ -6879,7 +6879,7 @@ dependencies = [
 name = "spl-binary-oracle-pair"
 version = "0.1.0"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "num-derive 0.4.2",
  "num-traits",
  "solana-program",
@@ -6918,7 +6918,7 @@ dependencies = [
 name = "spl-discriminator"
 version = "0.2.2"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "bytemuck",
  "solana-program",
  "spl-discriminator-derive 0.2.0",
@@ -6932,7 +6932,7 @@ checksum = "fadbefec4f3c678215ca72bd71862697bb06b41fd77c0088902dd3203354387b"
 dependencies = [
  "quote",
  "spl-discriminator-syn 0.1.1",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -6941,7 +6941,7 @@ version = "0.2.0"
 dependencies = [
  "quote",
  "spl-discriminator-syn 0.2.0",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -6953,7 +6953,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.10.8",
- "syn 2.0.46",
+ "syn 2.0.119",
  "thiserror",
 ]
 
@@ -6964,7 +6964,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.10.8",
- "syn 2.0.46",
+ "syn 2.0.119",
  "thiserror",
 ]
 
@@ -7027,7 +7027,7 @@ dependencies = [
 name = "spl-feature-proposal"
 version = "1.0.0"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "solana-program",
  "solana-program-test",
  "solana-sdk",
@@ -7056,7 +7056,7 @@ dependencies = [
  "assert_matches",
  "base64 0.22.1",
  "bincode",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "num-derive 0.4.2",
  "num-traits",
  "proptest",
@@ -7077,7 +7077,7 @@ dependencies = [
 name = "spl-governance-addin-api"
 version = "0.1.4"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "solana-program",
  "spl-governance-tools",
 ]
@@ -7089,7 +7089,7 @@ dependencies = [
  "arrayref",
  "assert_matches",
  "bincode",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "num-derive 0.4.2",
  "num-traits",
  "proptest",
@@ -7112,7 +7112,7 @@ dependencies = [
  "arrayref",
  "assert_matches",
  "bincode",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "num-derive 0.4.2",
  "num-traits",
  "proptest",
@@ -7136,7 +7136,7 @@ version = "0.1.4"
 dependencies = [
  "arrayref",
  "bincode",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "lazy_static",
  "num-derive 0.4.2",
  "num-traits",
@@ -7155,7 +7155,7 @@ version = "0.1.4"
 dependencies = [
  "arrayref",
  "bincode",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "num-derive 0.4.2",
  "num-traits",
  "serde",
@@ -7179,7 +7179,7 @@ dependencies = [
 name = "spl-managed-token"
 version = "0.1.0"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "shank",
  "solana-program",
  "solana-program-test",
@@ -7193,7 +7193,7 @@ dependencies = [
 name = "spl-math"
 version = "0.2.0"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "libm",
  "num-derive 0.4.2",
  "num-traits",
@@ -7235,7 +7235,7 @@ dependencies = [
 name = "spl-name-service"
 version = "0.3.0"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "num-derive 0.4.2",
  "num-traits",
  "solana-program",
@@ -7262,7 +7262,7 @@ name = "spl-pod"
 version = "0.2.2"
 dependencies = [
  "base64 0.22.1",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "bytemuck",
  "serde",
  "serde_json",
@@ -7307,7 +7307,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.10.8",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -7317,7 +7317,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "sha2 0.10.8",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -7351,7 +7351,7 @@ dependencies = [
  "approx",
  "arrayref",
  "bincode",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "num-derive 0.4.2",
  "num-traits",
  "num_enum 0.7.2",
@@ -7372,7 +7372,7 @@ name = "spl-single-pool-cli"
 version = "1.0.0"
 dependencies = [
  "bincode",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "clap 3.2.25",
  "console",
  "serde",
@@ -7407,7 +7407,7 @@ dependencies = [
  "arrayref",
  "assert_matches",
  "bincode",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "bytemuck",
  "num-derive 0.4.2",
  "num-traits",
@@ -7433,7 +7433,7 @@ name = "spl-stake-pool-cli"
 version = "1.0.0"
 dependencies = [
  "bincode",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "bs58",
  "clap 2.34.0",
  "serde",
@@ -7579,7 +7579,7 @@ name = "spl-token-2022-test"
 version = "0.0.1"
 dependencies = [
  "async-trait",
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "futures-util",
  "solana-program",
  "solana-program-test",
@@ -7786,7 +7786,7 @@ dependencies = [
 name = "spl-token-metadata-interface"
 version = "0.3.3"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "serde",
  "serde_json",
  "solana-program",
@@ -7981,14 +7981,14 @@ version = "0.1.0"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
 name = "spl-type-length-value-derive-test"
 version = "0.1.0"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "solana-program",
  "spl-discriminator 0.2.2",
  "spl-type-length-value 0.4.3",
@@ -7998,7 +7998,7 @@ dependencies = [
 name = "stateless-asks"
 version = "0.1.0"
 dependencies = [
- "borsh 1.5.0",
+ "borsh 1.8.0",
  "solana-program",
  "solana-program-test",
  "solana-sdk",
@@ -8074,7 +8074,7 @@ dependencies = [
  "proc-macro2",
  "quote",
  "rustversion",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -8102,25 +8102,13 @@ dependencies = [
 
 [[package]]
 name = "syn"
-version = "2.0.46"
+version = "2.0.119"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89456b690ff72fddcecf231caedbe615c59480c93358a93dfae7fc29e3ebbf0e"
+checksum = "872831b642d1a07999a962a351ed35b955ea2cfc8f3862091e2a240a84f17297"
 dependencies = [
  "proc-macro2",
  "quote",
  "unicode-ident",
-]
-
-[[package]]
-name = "syn_derive"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1329189c02ff984e9736652b1631330da25eaa6bc639089ed4915d25446cbe7b"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 2.0.46",
 ]
 
 [[package]]
@@ -8277,7 +8265,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -8289,7 +8277,7 @@ dependencies = [
  "proc-macro-error",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
  "test-case-core",
 ]
 
@@ -8335,7 +8323,7 @@ checksum = "e2470041c06ec3ac1ab38d0356a6119054dedaea53e12fbefc0de730a1c08524"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -8454,7 +8442,7 @@ checksum = "5b8a1e28f2deaa14e508979454cb3a223b10b938b45af148bc0986de36f1923b"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -8671,7 +8659,7 @@ checksum = "34704c8d6ebcbc939824180af020566b01a7c01f80641264eba0999f6c2b6be7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
@@ -8992,7 +8980,7 @@ dependencies = [
  "once_cell",
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
  "wasm-bindgen-shared",
 ]
 
@@ -9026,7 +9014,7 @@ checksum = "bae1abb6806dc1ad9e560ed242107c0f6c84335f1749dd4e8ddb012ebd5e25a7"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
  "wasm-bindgen-backend",
  "wasm-bindgen-shared",
 ]
@@ -9320,7 +9308,7 @@ checksum = "9ce1b18ccd8e73a9321186f97e46f9f04b778851177567b1975109d26a08d2a6"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.46",
+ "syn 2.0.119",
 ]
 
 [[package]]
