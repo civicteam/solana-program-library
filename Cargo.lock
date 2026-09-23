@@ -44,7 +44,7 @@ checksum = "9e8b47f52ea9bae42228d07ec09eb676433d7c4ed1ebdf0f1d1c29ed446f1ab8"
 dependencies = [
  "cfg-if 1.0.0",
  "cipher",
- "cpufeatures",
+ "cpufeatures 0.2.1",
  "opaque-debug 0.3.0",
 ]
 
@@ -368,7 +368,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "94893f1e0c6eeab764ade8dc4c0db24caf4fe7cbbaafc0eba0a9030f447b5185"
 dependencies = [
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.8",
 ]
 
 [[package]]
@@ -596,7 +596,7 @@ dependencies = [
  "getrandom 0.2.10",
  "instant",
  "pin-project-lite",
- "rand 0.8.5",
+ "rand 0.8.8",
  "tokio",
 ]
 
@@ -1096,6 +1096,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "chacha20"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65c35e4b699c7e15ccbe7ee35c005e4fc0a278d22238a2857e6ce2dadeda1b06"
+dependencies = [
+ "cfg-if 1.0.0",
+ "cpufeatures 0.3.1",
+ "rand_core 0.10.1",
+]
+
+[[package]]
 name = "chrono"
 version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1355,6 +1366,15 @@ name = "cpufeatures"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95059428f66df56b63431fdb4e1947ed2190586af5c5a8a8b71122bdf5a7f469"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "cpufeatures"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5ca28b0ae3115b884660db4118d803791fd6756b6e88f39c0f3f7859060d7566"
 dependencies = [
  "libc",
 ]
@@ -2190,6 +2210,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "getrandom"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
+dependencies = [
+ "cfg-if 1.0.0",
+ "libc",
+ "r-efi",
+ "rand_core 0.10.1",
+]
+
+[[package]]
 name = "gimli"
 version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2848,7 +2880,7 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f6d5ed8676d904364de097082f4e7d240b571b67989ced0240f08b7f966f940"
 dependencies = [
- "cpufeatures",
+ "cpufeatures 0.2.1",
 ]
 
 [[package]]
@@ -2875,9 +2907,9 @@ checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
 name = "libc"
-version = "0.2.152"
+version = "0.2.189"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "13e3bf6590cbc649f4d1a3eefc9d5d6eb746f5200ffb04e5e142700b8faa56e7"
+checksum = "3eaf3ede3fee6db1a4c2ee091bf8a8b4dccdc6d17f656fb07896ee72867612f2"
 
 [[package]]
 name = "libloading"
@@ -3549,7 +3581,7 @@ dependencies = [
  "lazy_static",
  "percent-encoding 2.3.1",
  "pin-project",
- "rand 0.8.5",
+ "rand 0.8.8",
  "thiserror",
 ]
 
@@ -3805,7 +3837,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8419d2b623c7c0896ff2d5d96e2cb4ede590fed28fcc34934f4c33c036e620a1"
 dependencies = [
  "cfg-if 1.0.0",
- "cpufeatures",
+ "cpufeatures 0.2.1",
  "opaque-debug 0.3.0",
  "universal-hash",
 ]
@@ -3968,7 +4000,7 @@ dependencies = [
  "bitflags 2.4.2",
  "lazy_static",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rand_chacha 0.3.1",
  "rand_xorshift",
  "regex-syntax",
@@ -4090,7 +4122,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "141bf7dfde2fbc246bfd3fe12f2455aa24b0fbd9af535d8c86c7bd1381ff2b1a"
 dependencies = [
  "bytes",
- "rand 0.8.5",
+ "rand 0.8.8",
  "ring 0.16.20",
  "rustc-hash",
  "rustls",
@@ -4124,6 +4156,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "r-efi"
+version = "6.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
+
+[[package]]
 name = "rand"
 version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4138,13 +4176,24 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.8.5"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+checksum = "e058c7de0b26af77780c769414d6257830bb240f3c38477dbc2c16e5f54d6d4c"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand"
+version = "0.10.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
+dependencies = [
+ "chacha20",
+ "getrandom 0.4.3",
+ "rand_core 0.10.1",
 ]
 
 [[package]]
@@ -4186,13 +4235,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "rand_core"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "63b8176103e19a2643978565ca18b50549f6101881c443590420e4dc998a3c69"
+
+[[package]]
 name = "rand_distr"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32cb0b9bc82b0a0876c2dd994a7e7a2683d3e7390ca40e6886785ef0c7e3ee31"
 dependencies = [
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.8",
 ]
 
 [[package]]
@@ -4847,7 +4902,7 @@ checksum = "99cd6713db3cf16b6c84e06321e049a9b9f699826e16096d23bbcc44d15d51a6"
 dependencies = [
  "block-buffer 0.9.0",
  "cfg-if 1.0.0",
- "cpufeatures",
+ "cpufeatures 0.2.1",
  "digest 0.9.0",
  "opaque-debug 0.3.0",
 ]
@@ -4859,7 +4914,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "028f48d513f9678cda28f6e4064755b3fbb2af6acd672f2c209b62323f7aea0f"
 dependencies = [
  "cfg-if 1.0.0",
- "cpufeatures",
+ "cpufeatures 0.2.1",
  "digest 0.10.7",
 ]
 
@@ -4870,7 +4925,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e3bf829a2d51ab4a5ddf1352d8470c140cadc8301b2ae1789db023f01cedd6ba"
 dependencies = [
  "cfg-if 1.0.0",
- "cpufeatures",
+ "cpufeatures 0.2.1",
  "digest 0.10.7",
 ]
 
@@ -4882,7 +4937,7 @@ checksum = "b69f9a4c9740d74c5baa3fd2e547f9525fa8088a8a958e0ca2409a514e33f5fa"
 dependencies = [
  "block-buffer 0.9.0",
  "cfg-if 1.0.0",
- "cpufeatures",
+ "cpufeatures 0.2.1",
  "digest 0.9.0",
  "opaque-debug 0.3.0",
 ]
@@ -4894,7 +4949,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "793db75ad2bcafc3ffa7c68b215fee268f537982cd901d132f89c6343f3a3dc8"
 dependencies = [
  "cfg-if 1.0.0",
- "cpufeatures",
+ "cpufeatures 0.2.1",
  "digest 0.10.7",
 ]
 
@@ -5076,7 +5131,7 @@ dependencies = [
  "futures 0.3.30",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand 0.8.8",
  "sha-1 0.9.8",
 ]
 
@@ -5137,7 +5192,7 @@ dependencies = [
  "ouroboros",
  "percentage",
  "qualifier_attr",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rayon",
  "regex",
  "rustc_version",
@@ -5244,7 +5299,7 @@ dependencies = [
  "bv",
  "fnv",
  "log",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rayon",
  "rustc_version",
  "serde",
@@ -5285,7 +5340,7 @@ dependencies = [
  "memmap2",
  "modular-bitfield",
  "num_enum 0.7.2",
- "rand 0.8.5",
+ "rand 0.8.8",
  "solana-measure",
  "solana-sdk",
  "tempfile",
@@ -5438,7 +5493,7 @@ dependencies = [
  "futures-util",
  "indexmap 2.2.1",
  "log",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rayon",
  "rcgen",
  "solana-measure",
@@ -5473,7 +5528,7 @@ dependencies = [
  "num_enum 0.7.2",
  "prio-graph",
  "quinn",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rand_chacha 0.3.1",
  "rayon",
  "rcgen",
@@ -5560,7 +5615,7 @@ dependencies = [
  "dlopen2",
  "lazy_static",
  "log",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rayon",
  "serde",
  "solana-measure",
@@ -5676,7 +5731,7 @@ dependencies = [
  "log",
  "lru",
  "num-traits",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rand_chacha 0.3.1",
  "rayon",
  "rustc_version",
@@ -5734,7 +5789,7 @@ dependencies = [
  "num_cpus",
  "num_enum 0.7.2",
  "prost",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rand_chacha 0.3.1",
  "rayon",
  "reed-solomon-erasure",
@@ -5846,7 +5901,7 @@ dependencies = [
  "crossbeam-channel",
  "log",
  "nix",
- "rand 0.8.5",
+ "rand 0.8.8",
  "serde",
  "serde_derive",
  "socket2",
@@ -5880,7 +5935,7 @@ dependencies = [
  "libc",
  "log",
  "nix",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rayon",
  "rustc_version",
  "serde",
@@ -5947,7 +6002,7 @@ dependencies = [
  "num-derive 0.4.2",
  "num-traits",
  "parking_lot 0.12.0",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rustc_version",
  "rustversion",
  "serde",
@@ -5981,7 +6036,7 @@ dependencies = [
  "num-derive 0.4.2",
  "num-traits",
  "percentage",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rustc_version",
  "serde",
  "solana-frozen-abi",
@@ -6260,7 +6315,7 @@ dependencies = [
  "ouroboros",
  "percentage",
  "qualifier_attr",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rayon",
  "regex",
  "rustc_version",
@@ -6334,7 +6389,7 @@ dependencies = [
  "qstring",
  "qualifier_attr",
  "rand 0.7.3",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rustc_version",
  "rustversion",
  "serde",
@@ -6477,7 +6532,7 @@ dependencies = [
  "pkcs8",
  "quinn",
  "quinn-proto",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rcgen",
  "rustls",
  "smallvec",
@@ -6613,7 +6668,7 @@ dependencies = [
  "log",
  "lru",
  "quinn",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rand_chacha 0.3.1",
  "rayon",
  "rcgen",
@@ -6804,7 +6859,7 @@ dependencies = [
  "hash32",
  "libc",
  "log",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rustc-demangle",
  "scroll",
  "thiserror",
@@ -6895,7 +6950,7 @@ name = "spl-concurrent-merkle-tree"
 version = "0.2.0"
 dependencies = [
  "bytemuck",
- "rand 0.8.5",
+ "rand 0.10.3",
  "rand_distr",
  "solana-program",
  "spl-merkle-tree-reference",
@@ -7355,7 +7410,7 @@ dependencies = [
  "num-derive 0.4.2",
  "num-traits",
  "num_enum 0.7.2",
- "rand 0.8.5",
+ "rand 0.10.3",
  "solana-program",
  "solana-program-test",
  "solana-sdk",
@@ -8208,7 +8263,7 @@ dependencies = [
  "humantime",
  "opentelemetry",
  "pin-project",
- "rand 0.8.5",
+ "rand 0.8.8",
  "serde",
  "static_assertions",
  "tarpc-plugins",
@@ -8630,7 +8685,7 @@ dependencies = [
  "indexmap 1.9.3",
  "pin-project",
  "pin-project-lite",
- "rand 0.8.5",
+ "rand 0.8.8",
  "slab",
  "tokio",
  "tokio-util 0.7.1",
@@ -8732,7 +8787,7 @@ dependencies = [
  "http",
  "httparse",
  "log",
- "rand 0.8.5",
+ "rand 0.8.8",
  "rustls",
  "sha1",
  "thiserror",
